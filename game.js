@@ -85,12 +85,8 @@ const Game = {
         document.getElementById('listening-bars').style.display = 'none';
         document.querySelector('.listening-text').textContent = 'Laster sang...';
 
-        // Stop old playback before creating fresh controller
-        this.stopPlayback();
-
-        if (this.spotifyAPI) {
-            this._createSpotifyController(spotifyId, gen, 0);
-        } else {
+        if (!this.spotifyAPI) {
+            this.stopPlayback();
             const container = document.getElementById('spotify-embed');
             container.innerHTML = `<iframe
                 src="https://open.spotify.com/embed/track/${spotifyId}?theme=0"
@@ -102,86 +98,121 @@ const Game = {
             playBtn.disabled = false;
             playBtn.style.opacity = '';
             document.querySelector('.listening-text').textContent = 'Trykk for å spille';
+            return;
         }
+
+        const uri = `spotify:track:${spotifyId}`;
+
+        // Strategy 1: Reuse existing controller with loadUri (fast, avoids flaky creation)
+        if (this.embedController) {
+            try {
+                this.embedController.loadUri(uri);
+                this._addSpotifyListeners(this.embedController, gen);
+
+                // Short timeout — loadUri on existing controller should be fast
+                this._loadTimeout = setTimeout(() => {
+                    if (gen !== this._loadGeneration) return;
+                    // loadUri didn't work — destroy and create fresh controller
+                    console.warn('loadUri timeout, creating fresh controller');
+                    this.stopPlayback();
+                    this._createSpotifyController(spotifyId, gen, 0);
+                }, 3000);
+                return;
+            } catch (e) {
+                console.warn('loadUri failed, creating fresh controller:', e);
+            }
+        }
+
+        // Strategy 2: Create fresh controller (with retry logic)
+        this.stopPlayback();
+        this._createSpotifyController(spotifyId, gen, 0);
     },
 
-    // Create Spotify controller with timeout and retry logic
+    // Shared listener setup — used by both loadUri and createController paths
+    _addSpotifyListeners(controller, gen) {
+        controller.addListener('ready', () => {
+            if (gen !== this._loadGeneration) return;
+            if (this._loadTimeout) {
+                clearTimeout(this._loadTimeout);
+                this._loadTimeout = null;
+            }
+            const playBtn = document.getElementById('cover-play-btn');
+            playBtn.disabled = false;
+            playBtn.style.opacity = '';
+            document.querySelector('.listening-text').textContent = 'Trykk for å spille';
+        });
+
+        controller.addListener('playback_update', (e) => {
+            if (gen !== this._loadGeneration) return;
+            if (!e.data) return;
+            const bars = document.getElementById('listening-bars');
+            const btn = document.getElementById('cover-play-btn');
+            const text = document.querySelector('.listening-text');
+
+            if (!e.data.isPaused && !e.data.isBuffering) {
+                // Audio is actually playing — clear any pending timeout
+                if (this._loadTimeout) {
+                    clearTimeout(this._loadTimeout);
+                    this._loadTimeout = null;
+                }
+                btn.style.display = 'none';
+                bars.style.display = 'flex';
+                text.textContent = 'Lytt og plasser sangen i tidslinjen';
+                if (!this.hasPlayedSong) {
+                    this.hasPlayedSong = true;
+                    this.renderTimeline();
+                }
+            } else if (e.data.isPaused) {
+                btn.style.display = '';
+                btn.disabled = false;
+                btn.style.opacity = '';
+                bars.style.display = 'none';
+                text.textContent = 'Trykk for å spille';
+            }
+        });
+    },
+
+    // Create fresh Spotify controller with timeout and retry logic
     _createSpotifyController(spotifyId, gen, attempt) {
-        if (gen !== this._loadGeneration) return; // stale call
+        if (gen !== this._loadGeneration) return;
 
         const uri = `spotify:track:${spotifyId}`;
         const container = document.getElementById('spotify-embed');
         container.innerHTML = '<div id="spotify-iframe"></div>';
         const iframeEl = document.getElementById('spotify-iframe');
-        const playBtn = document.getElementById('cover-play-btn');
+
+        // Show retry feedback to user
+        if (attempt > 0) {
+            document.querySelector('.listening-text').textContent = 'Prøver igjen...';
+        }
 
         // Timeout: if 'ready' doesn't fire, retry or fall back
         this._loadTimeout = setTimeout(() => {
             if (gen !== this._loadGeneration) return;
 
             if (attempt < 2) {
-                // Retry: destroy current controller and recreate
                 console.warn(`Spotify embed timeout (attempt ${attempt + 1}), retrying...`);
                 this.embedController = null;
                 container.innerHTML = '';
                 this._createSpotifyController(spotifyId, gen, attempt + 1);
             } else {
-                // Max retries reached - enable button anyway so user isn't stuck
-                console.warn('Spotify embed timeout after retries, enabling play button');
+                // Max retries — enable button so user isn't stuck
+                console.warn('Spotify embed timeout after retries');
+                const playBtn = document.getElementById('cover-play-btn');
                 playBtn.disabled = false;
                 playBtn.style.opacity = '';
-                document.querySelector('.listening-text').textContent = 'Trykk for å spille';
+                document.querySelector('.listening-text').textContent = 'Trykk for å prøve igjen';
             }
-        }, 6000);
+        }, 4000);
 
         try {
             this.spotifyAPI.createController(
                 iframeEl,
                 { uri, height: 152, width: '100%', theme: 0 },
                 (controller) => {
-                    if (gen !== this._loadGeneration) return; // stale
-
+                    if (gen !== this._loadGeneration) return;
                     this.embedController = controller;
-
-                    // Use ready event for reliable "controller is ready" detection
-                    controller.addListener('ready', () => {
-                        if (gen !== this._loadGeneration) return;
-                        // Clear timeout - controller loaded successfully
-                        if (this._loadTimeout) {
-                            clearTimeout(this._loadTimeout);
-                            this._loadTimeout = null;
-                        }
-                        playBtn.disabled = false;
-                        playBtn.style.opacity = '';
-                        document.querySelector('.listening-text').textContent = 'Trykk for å spille';
-                    });
-
-                    // Listen for real playback state changes
-                    controller.addListener('playback_update', (e) => {
-                        if (gen !== this._loadGeneration) return;
-                        if (!e.data) return;
-                        const bars = document.getElementById('listening-bars');
-                        const btn = document.getElementById('cover-play-btn');
-                        const text = document.querySelector('.listening-text');
-
-                        if (!e.data.isPaused && !e.data.isBuffering) {
-                            // Audio is actually playing
-                            btn.style.display = 'none';
-                            bars.style.display = 'flex';
-                            text.textContent = 'Lytt og plasser sangen i tidslinjen';
-                            if (!this.hasPlayedSong) {
-                                this.hasPlayedSong = true;
-                                this.renderTimeline();
-                            }
-                        } else if (e.data.isPaused) {
-                            // Paused - show play button again
-                            btn.style.display = '';
-                            btn.disabled = false;
-                            btn.style.opacity = '';
-                            bars.style.display = 'none';
-                            text.textContent = 'Trykk for å spille';
-                        }
-                    });
+                    this._addSpotifyListeners(controller, gen);
                 }
             );
         } catch (e) {
@@ -191,14 +222,25 @@ const Game = {
                 clearTimeout(this._loadTimeout);
                 this._loadTimeout = null;
             }
-            // Enable play button as fallback
+            const playBtn = document.getElementById('cover-play-btn');
             playBtn.disabled = false;
             playBtn.style.opacity = '';
-            document.querySelector('.listening-text').textContent = 'Trykk for å spille';
+            document.querySelector('.listening-text').textContent = 'Trykk for å prøve igjen';
         }
     },
 
-    // Stop any current playback and destroy the embed
+    // Pause playback but keep controller alive for reuse
+    pausePlayback() {
+        if (this._loadTimeout) {
+            clearTimeout(this._loadTimeout);
+            this._loadTimeout = null;
+        }
+        if (this.embedController) {
+            try { this.embedController.togglePlay(); } catch (e) {}
+        }
+    },
+
+    // Stop playback and destroy the embed completely
     stopPlayback() {
         // Cancel any pending load timeout/retry
         if (this._loadTimeout) {
@@ -267,7 +309,8 @@ const Game = {
     async placeSong(dropIndex) {
         if (!this.isWaitingForPlacement || !this.currentSong) return;
         this.isWaitingForPlacement = false;
-        this.stopPlayback();
+        // Pause playback but keep controller alive for reuse next turn
+        this.pausePlayback();
 
         const player = this.currentPlayer;
         const correct = this.isPlacementCorrect(player.timeline, this.currentSong, dropIndex);
