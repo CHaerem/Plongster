@@ -395,21 +395,35 @@ h3 {
     animation: pulse 2s ease-in-out infinite;
 }
 
+.reveal-secondary-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin-top: 8px;
+}
+
 .btn-spotify-link {
     background: transparent;
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    margin-bottom: 12px;
+    color: var(--text-dim);
+    border: none;
+    margin-bottom: 4px;
     text-decoration: none;
     font-family: inherit;
-    font-weight: 600;
+    font-weight: 500;
     border-radius: var(--radius);
-    padding: 10px 20px;
-    font-size: 14px;
+    padding: 6px 12px;
+    font-size: 12px;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     cursor: pointer;
+    opacity: 0.6;
+}
+
+.btn-spotify-link svg {
+    width: 14px;
+    height: 14px;
 }
 
 /* Game Screen */
@@ -869,11 +883,14 @@ h3 {
 
 /* Undo button on reveal */
 .btn-undo {
-    background: var(--bg-card);
-    color: var(--text);
-    border: 1px solid rgba(255,255,255,0.15);
-    width: 100%;
-    margin-bottom: 8px;
+    background: transparent;
+    color: var(--text-dim);
+    border: none;
+    width: auto;
+    margin-bottom: 4px;
+    font-size: 12px;
+    padding: 6px 12px;
+    opacity: 0.6;
 }
 
 /* Game Master Panel */
@@ -961,6 +978,38 @@ h3 {
     align-items: center;
     justify-content: space-between;
     padding: 6px 0;
+    gap: 6px;
+}
+
+.gm-player-order {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.btn-icon.btn-xs {
+    width: 22px;
+    height: 16px;
+    font-size: 9px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    background: var(--bg-card);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    cursor: pointer;
+}
+
+.btn-icon.btn-xs:disabled {
+    opacity: 0.2;
+    cursor: default;
+}
+
+.btn-icon.btn-xs:not(:disabled):active {
+    background: var(--accent);
+    color: white;
 }
 
 .gm-player-name {

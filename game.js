@@ -63,8 +63,19 @@ const Game = {
     },
 
     // Load song into hidden embed (user triggers play via cover button)
+    _loadGeneration: 0,
+    _loadTimeout: null,
+
     loadSong(spotifyId) {
-        const uri = `spotify:track:${spotifyId}`;
+        // Increment generation to invalidate any stale callbacks
+        this._loadGeneration++;
+        const gen = this._loadGeneration;
+
+        // Clear any pending retry timeout
+        if (this._loadTimeout) {
+            clearTimeout(this._loadTimeout);
+            this._loadTimeout = null;
+        }
 
         // Reset cover UI - disable play button until controller is ready
         const playBtn = document.getElementById('cover-play-btn');
@@ -78,16 +89,68 @@ const Game = {
         this.stopPlayback();
 
         if (this.spotifyAPI) {
+            this._createSpotifyController(spotifyId, gen, 0);
+        } else {
             const container = document.getElementById('spotify-embed');
-            container.innerHTML = '<div id="spotify-iframe"></div>';
+            container.innerHTML = `<iframe
+                src="https://open.spotify.com/embed/track/${spotifyId}?theme=0"
+                width="100%"
+                height="152"
+                frameBorder="0"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"></iframe>`;
+            playBtn.disabled = false;
+            playBtn.style.opacity = '';
+            document.querySelector('.listening-text').textContent = 'Trykk for å spille';
+        }
+    },
+
+    // Create Spotify controller with timeout and retry logic
+    _createSpotifyController(spotifyId, gen, attempt) {
+        if (gen !== this._loadGeneration) return; // stale call
+
+        const uri = `spotify:track:${spotifyId}`;
+        const container = document.getElementById('spotify-embed');
+        container.innerHTML = '<div id="spotify-iframe"></div>';
+        const iframeEl = document.getElementById('spotify-iframe');
+        const playBtn = document.getElementById('cover-play-btn');
+
+        // Timeout: if 'ready' doesn't fire, retry or fall back
+        this._loadTimeout = setTimeout(() => {
+            if (gen !== this._loadGeneration) return;
+
+            if (attempt < 2) {
+                // Retry: destroy current controller and recreate
+                console.warn(`Spotify embed timeout (attempt ${attempt + 1}), retrying...`);
+                this.embedController = null;
+                container.innerHTML = '';
+                this._createSpotifyController(spotifyId, gen, attempt + 1);
+            } else {
+                // Max retries reached - enable button anyway so user isn't stuck
+                console.warn('Spotify embed timeout after retries, enabling play button');
+                playBtn.disabled = false;
+                playBtn.style.opacity = '';
+                document.querySelector('.listening-text').textContent = 'Trykk for å spille';
+            }
+        }, 6000);
+
+        try {
             this.spotifyAPI.createController(
-                document.getElementById('spotify-iframe'),
+                iframeEl,
                 { uri, height: 152, width: '100%', theme: 0 },
                 (controller) => {
+                    if (gen !== this._loadGeneration) return; // stale
+
                     this.embedController = controller;
 
                     // Use ready event for reliable "controller is ready" detection
                     controller.addListener('ready', () => {
+                        if (gen !== this._loadGeneration) return;
+                        // Clear timeout - controller loaded successfully
+                        if (this._loadTimeout) {
+                            clearTimeout(this._loadTimeout);
+                            this._loadTimeout = null;
+                        }
                         playBtn.disabled = false;
                         playBtn.style.opacity = '';
                         document.querySelector('.listening-text').textContent = 'Trykk for å spille';
@@ -95,6 +158,7 @@ const Game = {
 
                     // Listen for real playback state changes
                     controller.addListener('playback_update', (e) => {
+                        if (gen !== this._loadGeneration) return;
                         if (!e.data) return;
                         const bars = document.getElementById('listening-bars');
                         const btn = document.getElementById('cover-play-btn');
@@ -120,15 +184,14 @@ const Game = {
                     });
                 }
             );
-        } else {
-            const container = document.getElementById('spotify-embed');
-            container.innerHTML = `<iframe
-                src="https://open.spotify.com/embed/track/${spotifyId}?theme=0"
-                width="100%"
-                height="152"
-                frameBorder="0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"></iframe>`;
+        } catch (e) {
+            console.error('Spotify createController error:', e);
+            if (gen !== this._loadGeneration) return;
+            if (this._loadTimeout) {
+                clearTimeout(this._loadTimeout);
+                this._loadTimeout = null;
+            }
+            // Enable play button as fallback
             playBtn.disabled = false;
             playBtn.style.opacity = '';
             document.querySelector('.listening-text').textContent = 'Trykk for å spille';
@@ -137,6 +200,11 @@ const Game = {
 
     // Stop any current playback and destroy the embed
     stopPlayback() {
+        // Cancel any pending load timeout/retry
+        if (this._loadTimeout) {
+            clearTimeout(this._loadTimeout);
+            this._loadTimeout = null;
+        }
         if (this.embedController) {
             try { this.embedController.togglePlay(); } catch (e) {}
             this.embedController = null;
@@ -148,7 +216,20 @@ const Game = {
     // Called from play button on cover (direct user gesture = reliable)
     togglePlay() {
         if (this.embedController) {
-            this.embedController.togglePlay();
+            try {
+                this.embedController.togglePlay();
+            } catch (e) {
+                console.error('togglePlay error:', e);
+                // If togglePlay fails, try reloading the song
+                if (this.currentSong && this.currentSong.spotifyId) {
+                    this.loadSong(this.currentSong.spotifyId);
+                }
+                return;
+            }
+        } else if (this.currentSong && this.currentSong.spotifyId) {
+            // No controller exists (was destroyed or never created) - reload
+            this.loadSong(this.currentSong.spotifyId);
+            return;
         }
         // Show immediate feedback while waiting for playback_update
         document.querySelector('.listening-text').textContent = 'Starter avspilling...';
@@ -503,6 +584,10 @@ const Game = {
         this.players.forEach((player, i) => {
             html += `
                 <div class="gm-player-row">
+                    <div class="gm-player-order">
+                        <button class="btn-icon btn-xs" onclick="Game.gmMovePlayer(${i}, -1)" ${i === 0 ? 'disabled' : ''}>▲</button>
+                        <button class="btn-icon btn-xs" onclick="Game.gmMovePlayer(${i}, 1)" ${i === this.players.length - 1 ? 'disabled' : ''}>▼</button>
+                    </div>
                     <span class="gm-player-name">${this.escapeHtml(player.name)}</span>
                     <div class="gm-player-actions">
                         <button class="btn-icon btn-sm" onclick="Game.gmAdjustScore(${i}, -1)">−</button>
@@ -559,6 +644,26 @@ const Game = {
     },
 
     // --- Game Master Actions ---
+    gmMovePlayer(playerIndex, direction) {
+        const newIndex = playerIndex + direction;
+        if (newIndex < 0 || newIndex >= this.players.length) return;
+
+        // Swap players
+        [this.players[playerIndex], this.players[newIndex]] = [this.players[newIndex], this.players[playerIndex]];
+
+        // Keep currentPlayerIndex pointing to the same player
+        if (this.currentPlayerIndex === playerIndex) {
+            this.currentPlayerIndex = newIndex;
+        } else if (this.currentPlayerIndex === newIndex) {
+            this.currentPlayerIndex = playerIndex;
+        }
+
+        this.saveState();
+        this.renderScores();
+        this.renderCurrentTurn();
+        this.renderMenu();
+    },
+
     gmAdjustScore(playerIndex, delta) {
         const player = this.players[playerIndex];
         if (delta > 0) {
