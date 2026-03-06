@@ -83,10 +83,35 @@ const Game = {
                 { uri, height: 152, width: '100%', theme: 0 },
                 (controller) => {
                     this.embedController = controller;
-                    // Enable play button now that controller is ready
-                    playBtn.disabled = false;
-                    playBtn.style.opacity = '';
-                    document.querySelector('.listening-text').textContent = 'Trykk for å spille';
+
+                    // Use ready event for reliable "controller is ready" detection
+                    controller.addListener('ready', () => {
+                        playBtn.disabled = false;
+                        playBtn.style.opacity = '';
+                        document.querySelector('.listening-text').textContent = 'Trykk for å spille';
+                    });
+
+                    // Listen for real playback state changes
+                    controller.addListener('playback_update', (e) => {
+                        if (!e.data) return;
+                        const bars = document.getElementById('listening-bars');
+                        const btn = document.getElementById('cover-play-btn');
+                        const text = document.querySelector('.listening-text');
+
+                        if (!e.data.isPaused && !e.data.isBuffering) {
+                            // Audio is actually playing
+                            btn.style.display = 'none';
+                            bars.style.display = 'flex';
+                            text.textContent = 'Lytt og plasser sangen i tidslinjen';
+                        } else if (e.data.isPaused) {
+                            // Paused - show play button again
+                            btn.style.display = '';
+                            btn.disabled = false;
+                            btn.style.opacity = '';
+                            bars.style.display = 'none';
+                            text.textContent = 'Trykk for å spille';
+                        }
+                    });
                 }
             );
         } else {
@@ -109,10 +134,8 @@ const Game = {
         if (this.embedController) {
             this.embedController.togglePlay();
         }
-        // Switch to equalizer UI
-        document.getElementById('cover-play-btn').style.display = 'none';
-        document.getElementById('listening-bars').style.display = 'flex';
-        document.querySelector('.listening-text').textContent = 'Lytt og plasser sangen i tidslinjen';
+        // Show immediate feedback while waiting for playback_update
+        document.querySelector('.listening-text').textContent = 'Starter avspilling...';
     },
 
     // Start a new turn
