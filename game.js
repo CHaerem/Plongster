@@ -913,6 +913,7 @@ const Game = {
                 <p class="pass-phone-name">${challengerName}</p>
                 <p class="challenge-text">Du skal plassere sangen p\u00e5 <strong>${originalName}s tidslinje</strong> der du mener den h\u00f8rer hjemme. (1 \u{1F536} brukt)</p>
                 <button class="btn btn-primary btn-large" onclick="Game.showChallengerTimeline()">Jeg er klar!</button>
+                <button class="btn btn-ghost" onclick="Game.cancelChallengeRefund()" style="margin-top:8px">Angre utfordring</button>
             `;
             this._showOverlay('challenge-overlay');
             return;
@@ -940,6 +941,46 @@ const Game = {
         this.saveState();
     },
 
+    // Cancel challenge after token was deducted — refund token and go back to pre-reveal
+    cancelChallengeRefund() {
+        const cp = this.challengePhase;
+        if (cp && cp.challengerIndex !== null) {
+            // Refund the token
+            this.players[cp.challengerIndex].tokens = Math.min(this.MAX_TOKENS, this.players[cp.challengerIndex].tokens + 1);
+            cp.challengerIndex = null;
+            cp.challengerDropIndex = null;
+        }
+        this._hideOverlay('challenge-overlay');
+        this.saveState();
+        this.renderScores();
+    },
+
+    // Cancel challenge from the challenger timeline view — refund and return to pre-reveal
+    cancelChallengeFromTimeline() {
+        const cp = this.challengePhase;
+        if (cp && cp.challengerIndex !== null) {
+            this.players[cp.challengerIndex].tokens = Math.min(this.MAX_TOKENS, this.players[cp.challengerIndex].tokens + 1);
+            cp.challengerIndex = null;
+            cp.challengerDropIndex = null;
+        }
+        // Clean up challenger mode
+        this._challengerMode = false;
+        this.isWaitingForPlacement = false;
+        this.selectedDropIndex = null;
+        const confirmEl = document.querySelector('.confirm-placement');
+        if (confirmEl) confirmEl.remove();
+
+        // Clear game actions
+        document.getElementById('game-actions').innerHTML = '';
+
+        // Restore current player's view and show pre-reveal again
+        this.renderScores();
+        this.renderCurrentTurn();
+        this.renderTimeline();
+        this.showPreReveal();
+        this.saveState();
+    },
+
     selectChallenger(playerIndex) {
         if (this.players[playerIndex].tokens < 1) return; // Guard against race with GM
         this.challengePhase.challengerIndex = playerIndex;
@@ -959,6 +1000,7 @@ const Game = {
             <p class="pass-phone-name">${challengerName}</p>
             <p class="challenge-text">Du skal plassere sangen p\u00e5 <strong>${originalName}s tidslinje</strong> der du mener den h\u00f8rer hjemme. (1 \u{1F536} brukt)</p>
             <button class="btn btn-primary btn-large" onclick="Game.showChallengerTimeline()">Jeg er klar!</button>
+            <button class="btn btn-ghost" onclick="Game.cancelChallengeRefund()" style="margin-top:8px">Angre utfordring</button>
         `;
     },
 
@@ -982,6 +1024,10 @@ const Game = {
         const challengerName = this.escapeHtml(this.players[this.challengePhase.challengerIndex].name);
         const originalName = this.escapeHtml(this.players[this.challengePhase.originalPlayerIndex].name);
         el.innerHTML = `<strong>${challengerName}</strong> utfordrer \u2014 plasser sangen p\u00e5 ${originalName}s tidslinje!`;
+
+        // Show cancel button in game actions area
+        const actionsEl = document.getElementById('game-actions');
+        actionsEl.innerHTML = `<button class="btn btn-ghost btn-sm action-btn" onclick="Game.cancelChallengeFromTimeline()">Angre utfordring (\u{1F536} refunderes)</button>`;
     },
 
     renderChallengerTimeline() {
