@@ -12,6 +12,9 @@ const Game = {
     embedController: null,
     hasPlayedSong: false,
     _isPlaying: false,
+    challengePhase: null,   // { originalPlayerIndex, originalDropIndex, challengerIndex, challengerDropIndex }
+    titleArtistClaimed: false,
+    MAX_TOKENS: 5,
 
     // Initialize a new game
     init(playerNames, cardsToWin) {
@@ -24,14 +27,17 @@ const Game = {
         this.selectedDropIndex = null;
         this._isPlaying = false;
         this._apiRetryCount = 0;
+        this.challengePhase = null;
+        this.titleArtistClaimed = false;
 
-        // Each player starts with 1 card in their timeline
+        // Each player starts with 1 card in their timeline and 3 tokens
         this.players = playerNames.map(name => {
             const startCard = this.drawSong();
             return {
                 name,
                 timeline: [{ title: startCard.title, artist: startCard.artist, year: startCard.year }],
                 score: 1,
+                tokens: 3,
             };
         });
 
@@ -75,7 +81,7 @@ const Game = {
         const scoresEl = document.getElementById('final-scores');
         scoresEl.innerHTML = '<p style="margin-bottom:10px;color:var(--text-dim)">Alle sanger er brukt opp!</p>' +
             this.players.map(p =>
-                `<div class="final-score-row"><span>${this.escapeHtml(p.name)}</span><span>${p.score} kort</span></div>`
+                `<div class="final-score-row"><span>${this.escapeHtml(p.name)}</span><span>${p.score} kort \u00B7 \u25CF${p.tokens}</span></div>`
             ).join('');
         localStorage.removeItem('hitster-game-state');
         App.showScreen('screen-winner');
@@ -183,6 +189,7 @@ const Game = {
                 if (!this.hasPlayedSong) {
                     this.hasPlayedSong = true;
                     this.renderTimeline();
+                    this.renderGameActions();
                 }
             } else if (e.data.isPaused) {
                 // Detect track end (position resets to 0 while we thought we were playing)
@@ -385,6 +392,71 @@ const Game = {
         }
     },
 
+    // Skip current song using a token (player action, costs 1 token)
+    skipSongWithToken() {
+        if (this._actionDebounce) return;
+        this._actionDebounce = true;
+        setTimeout(() => { this._actionDebounce = false; }, 500);
+
+        const player = this.currentPlayer;
+        if (player.tokens < 1) return;
+        player.tokens -= 1;
+        this.skipSong(); // Reuse existing skip logic
+        this.renderScores();
+        this.renderGameActions();
+    },
+
+    // Trade 3 tokens for a free card placed on timeline
+    tradeTokensForCard() {
+        if (this._actionDebounce) return;
+        this._actionDebounce = true;
+        setTimeout(() => { this._actionDebounce = false; }, 500);
+
+        const player = this.currentPlayer;
+        if (player.tokens < 3) return;
+
+        const card = this.drawSong();
+        if (!card) return; // No songs left
+
+        player.tokens -= 3;
+
+        // Auto-place in correct chronological position
+        let insertIdx = player.timeline.findIndex(c => c.year >= card.year);
+        if (insertIdx === -1) insertIdx = player.timeline.length;
+        player.timeline.splice(insertIdx, 0, {
+            title: card.title, artist: card.artist, year: card.year,
+        });
+        player.score = player.timeline.length;
+
+        this.saveState();
+        this.renderScores();
+        this.renderTimeline();
+        this.renderGameActions();
+
+        // Check for winner
+        if (player.score >= this.cardsToWin) {
+            this.showWinner(player);
+        }
+    },
+
+    // Render token action buttons (skip / trade) during placement phase
+    renderGameActions() {
+        const el = document.getElementById('game-actions');
+        if (!this.isWaitingForPlacement || !this.hasPlayedSong) {
+            el.innerHTML = '';
+            return;
+        }
+        const p = this.currentPlayer;
+        let html = '';
+        if (p.tokens >= 1) {
+            html += `<button class="btn btn-ghost btn-sm action-btn" onclick="Game.skipSongWithToken()">\u23ED Hopp over (1 \u25CF)</button>`;
+        }
+        if (p.tokens >= 3) {
+            html += `<button class="btn btn-ghost btn-sm action-btn" onclick="Game.tradeTokensForCard()">\u{1F504} Bytt 3 \u25CF \u2192 1 kort</button>`;
+        }
+        el.innerHTML = html;
+    },
+
     // Replay song from beginning
     replayFromStart() {
         if (this.currentSong && this._isValidSpotifyId(this.currentSong.spotifyId)) {
@@ -414,6 +486,7 @@ const Game = {
         this.renderScores();
         this.renderCurrentTurn();
         this.renderTimeline();
+        this.renderGameActions();
 
         // Hide embed and show listening cover, then load + autoplay
         const wrapper = document.querySelector('.spotify-player-wrapper');
@@ -438,56 +511,108 @@ const Game = {
         return true;
     },
 
-    // Place song at index
-    async placeSong(dropIndex) {
-        if (!this.isWaitingForPlacement || !this.currentSong) return;
-        if (dropIndex < 0 || dropIndex > this.currentPlayer.timeline.length) return;
-        this.isWaitingForPlacement = false;
-        // Pause playback but keep controller alive for reuse next turn
-        this.pausePlayback();
+    showReveal(result) {
+        // Close challenge overlay if open (after challenger flow)
+        document.getElementById('challenge-overlay').classList.remove('active');
 
-        const player = this.currentPlayer;
-        const correct = this.isPlacementCorrect(player.timeline, this.currentSong, dropIndex);
-
-        if (correct) {
-            player.timeline.splice(dropIndex, 0, {
-                title: this.currentSong.title,
-                artist: this.currentSong.artist,
-                year: this.currentSong.year,
-            });
-            player.score = player.timeline.length;
-        }
-
-        this.saveState();
-        this.showReveal(correct);
-    },
-
-    showReveal(correct) {
+        // Make sure reveal overlay is open
         const overlay = document.getElementById('song-reveal-overlay');
+        overlay.classList.add('active');
+
+        // Switch from pre-reveal to result
+        document.getElementById('pre-reveal').style.display = 'none';
+        const resultSection = document.getElementById('reveal-result');
+        resultSection.style.display = '';
+
         const icon = document.getElementById('reveal-result-icon');
         const title = document.getElementById('reveal-title');
+        const subtitle = document.getElementById('reveal-subtitle');
         const name = document.getElementById('reveal-song-name');
         const artist = document.getElementById('reveal-song-artist');
         const year = document.getElementById('reveal-song-year');
 
-        icon.className = 'reveal-icon ' + (correct ? 'correct' : 'wrong');
-        title.textContent = correct ? 'Riktig!' : 'Feil!';
+        const isPositive = (result === 'no_challenge_correct' || result === 'original_wins');
+
+        switch (result) {
+            case 'no_challenge_correct':
+                icon.className = 'reveal-icon correct';
+                title.textContent = 'Riktig!';
+                subtitle.textContent = '';
+                subtitle.className = 'reveal-subtitle';
+                break;
+            case 'no_challenge_wrong':
+                icon.className = 'reveal-icon wrong';
+                title.textContent = 'Feil!';
+                subtitle.textContent = '';
+                subtitle.className = 'reveal-subtitle';
+                break;
+            case 'original_wins':
+                icon.className = 'reveal-icon correct';
+                title.textContent = 'Riktig!';
+                subtitle.textContent = `${this.escapeHtml(this.players[this.challengePhase.originalPlayerIndex].name)} beholder kortet`;
+                subtitle.className = 'reveal-subtitle';
+                break;
+            case 'challenger_wins':
+                icon.className = 'reveal-icon stolen';
+                title.textContent = 'Stjålet!';
+                subtitle.textContent = `${this.escapeHtml(this.players[this.challengePhase.challengerIndex].name)} stjal kortet!`;
+                subtitle.className = 'reveal-subtitle stolen';
+                break;
+            case 'nobody_wins':
+                icon.className = 'reveal-icon wrong';
+                title.textContent = 'Begge feil!';
+                subtitle.textContent = 'Ingen får kortet';
+                subtitle.className = 'reveal-subtitle';
+                break;
+        }
+
         name.textContent = this.currentSong.title;
         artist.textContent = this.currentSong.artist;
         year.textContent = this.currentSong.year;
 
         // Haptic feedback on mobile
         if ('vibrate' in navigator) {
-            navigator.vibrate(correct ? [50] : [100, 50, 100]);
+            navigator.vibrate(isPositive ? [50] : [100, 50, 100]);
         }
 
-        overlay.classList.add('active');
+        // Token award for title/artist claim
+        const tokenSection = document.getElementById('token-award-section');
+        const tokenText = document.getElementById('token-award-text');
+        if (this.titleArtistClaimed) {
+            const claimPlayer = this.players[this.challengePhase.originalPlayerIndex];
+            if (claimPlayer.tokens < this.MAX_TOKENS) {
+                claimPlayer.tokens += 1;
+                tokenText.textContent = `${this.escapeHtml(claimPlayer.name)} fikk +1 \u25CF for tittel og artist! (\u25CF${claimPlayer.tokens})`;
+                tokenText.className = 'token-award-text earned';
+            } else {
+                tokenText.textContent = `Maks tokens (${this.MAX_TOKENS}) \u2014 ingen token tildelt`;
+                tokenText.className = 'token-award-text';
+            }
+            tokenSection.style.display = '';
+        } else {
+            tokenSection.style.display = 'none';
+        }
+
+        this.saveState();
+        this.renderScores();
     },
 
     nextTurn() {
         this.currentSong = null;
+        this.challengePhase = null;
+        this.titleArtistClaimed = false;
+        this._challengerMode = false;
+
         const overlay = document.getElementById('song-reveal-overlay');
         overlay.classList.remove('active');
+
+        // Reset reveal overlay sections for next time
+        document.getElementById('pre-reveal').style.display = '';
+        document.getElementById('reveal-result').style.display = 'none';
+
+        // Hide token award section for next time
+        const tokenSection = document.getElementById('token-award-section');
+        if (tokenSection) tokenSection.style.display = 'none';
 
         const winner = this.players.find(p => p.score >= this.cardsToWin);
         if (winner) {
@@ -521,7 +646,7 @@ const Game = {
         scoresEl.innerHTML = sorted.map(p => `
             <div class="final-score-row ${p === winner ? 'winner' : ''}">
                 <span class="final-score-name">${this.escapeHtml(p.name)}</span>
-                <span class="final-score-count">${p.score} kort</span>
+                <span class="final-score-count">${p.score} kort \u00B7 \u25CF${p.tokens}</span>
             </div>
         `).join('');
 
@@ -537,6 +662,7 @@ const Game = {
         el.innerHTML = this.players.map((p, i) => `
             <div class="score-chip ${i === this.currentPlayerIndex ? 'active' : ''}">
                 ${this.escapeHtml(p.name)}: ${p.score}
+                <span class="token-count"><span class="token-icon">\u25CF</span>${p.tokens}</span>
             </div>
         `).join('');
     },
@@ -656,9 +782,347 @@ const Game = {
         if (this.selectedDropIndex !== null && this.isWaitingForPlacement) {
             const idx = this.selectedDropIndex;
             this.selectedDropIndex = null; // Clear immediately to prevent double-fire
-            this.placeSong(idx);
+            this.isWaitingForPlacement = false;
+            this.pausePlayback();
+
+            // Initialize challenge phase
+            this.challengePhase = {
+                originalPlayerIndex: this.currentPlayerIndex,
+                originalDropIndex: idx,
+                challengerIndex: null,
+                challengerDropIndex: null,
+            };
+            this.saveState();
+            this.showPreReveal();
         }
     },
+
+    // =============================================
+    // Challenge (Utfordring) Phase
+    // =============================================
+
+    // Show reveal overlay in "pre-reveal" mode (quick decision: reveal or challenge)
+    showPreReveal() {
+        this.titleArtistClaimed = false;
+
+        const overlay = document.getElementById('song-reveal-overlay');
+        document.getElementById('pre-reveal').style.display = '';
+        document.getElementById('reveal-result').style.display = 'none';
+        overlay.classList.add('active');
+
+        // Update claim button state
+        const claimBtn = document.getElementById('btn-claim-title');
+        if (claimBtn) {
+            claimBtn.classList.remove('active');
+            const player = this.currentPlayer;
+            if (player.tokens >= this.MAX_TOKENS) {
+                claimBtn.disabled = true;
+                claimBtn.textContent = '\uD83C\uDFA4 Maks tokens (' + this.MAX_TOKENS + ')';
+            } else {
+                claimBtn.disabled = false;
+                claimBtn.textContent = '\uD83C\uDFA4 Jeg vet tittel og artist (+1 \u25CF)';
+            }
+        }
+
+        // Show/hide challenge button based on whether any other player has tokens
+        const challengeBtn = document.getElementById('btn-challenge');
+        if (challengeBtn) {
+            const anyoneHasTokens = this.players.some((p, i) =>
+                i !== this.currentPlayerIndex && p.tokens >= 1
+            );
+            challengeBtn.style.display = anyoneHasTokens ? '' : 'none';
+        }
+
+        // Clear game actions (skip/trade buttons)
+        document.getElementById('game-actions').innerHTML = '';
+
+        this.saveState();
+    },
+
+    // Toggle title/artist claim (player claims they know the song before reveal)
+    toggleTitleClaim() {
+        this.titleArtistClaimed = !this.titleArtistClaimed;
+        const btn = document.getElementById('btn-claim-title');
+        if (btn) {
+            btn.classList.toggle('active', this.titleArtistClaimed);
+        }
+        this.saveState();
+    },
+
+    // No challenge — go straight to resolve and show result
+    skipChallenge() {
+        this.resolvePlacement();
+    },
+
+    // Someone wants to challenge — open challenge overlay for player selection
+    startChallenge() {
+        const cp = this.challengePhase;
+        // Only players with tokens can challenge
+        const otherPlayers = [];
+        this.players.forEach((p, i) => {
+            if (i !== cp.originalPlayerIndex && p.tokens >= 1) {
+                otherPlayers.push({ player: p, index: i });
+            }
+        });
+
+        if (otherPlayers.length === 0) {
+            // No one has tokens — shouldn't happen (button hidden), but guard
+            return;
+        }
+
+        const overlay = document.getElementById('challenge-overlay');
+        const content = document.getElementById('challenge-content');
+
+        if (otherPlayers.length === 1) {
+            // Only one possible challenger — skip selection, go straight to pass phone
+            const challenger = otherPlayers[0];
+            cp.challengerIndex = challenger.index;
+            // Deduct token from challenger
+            challenger.player.tokens -= 1;
+            this.saveState();
+            this.renderScores();
+
+            const challengerName = this.escapeHtml(challenger.player.name);
+            content.innerHTML = `
+                <div class="pass-phone-icon">&#128241;</div>
+                <h2>Gi telefonen til</h2>
+                <p class="pass-phone-name">${challengerName}</p>
+                <p class="challenge-text">Du skal plassere sangen p\u00e5 din egen tidslinje. (1 \u25CF brukt)</p>
+                <button class="btn btn-primary btn-large" onclick="Game.showChallengerTimeline()">Jeg er klar!</button>
+            `;
+            overlay.classList.add('active');
+            return;
+        }
+
+        // Multiple possible challengers — show selection list
+        let playerButtons = '';
+        otherPlayers.forEach(({ player, index }) => {
+            playerButtons += `<button class="challenge-player-btn" onclick="Game.selectChallenger(${index})">${this.escapeHtml(player.name)} (\u25CF${player.tokens})</button>`;
+        });
+
+        content.innerHTML = `
+            <h2>Hvem utfordrer?</h2>
+            <p class="challenge-text">Koster 1 \u25CF \u00e5 utfordre:</p>
+            <div class="challenge-player-list">${playerButtons}</div>
+            <button class="btn btn-ghost" onclick="Game.cancelChallenge()">Avbryt</button>
+        `;
+        overlay.classList.add('active');
+    },
+
+    // Cancel challenge — close challenge overlay, stay on pre-reveal
+    cancelChallenge() {
+        document.getElementById('challenge-overlay').classList.remove('active');
+        this.challengePhase.challengerIndex = null;
+        this.saveState();
+    },
+
+    selectChallenger(playerIndex) {
+        this.challengePhase.challengerIndex = playerIndex;
+        // Deduct token from challenger
+        this.players[playerIndex].tokens -= 1;
+        this.saveState();
+        this.renderScores();
+
+        // Show "pass phone to challenger" screen
+        const content = document.getElementById('challenge-content');
+        const challengerName = this.escapeHtml(this.players[playerIndex].name);
+
+        content.innerHTML = `
+            <div class="pass-phone-icon">&#128241;</div>
+            <h2>Gi telefonen til</h2>
+            <p class="pass-phone-name">${challengerName}</p>
+            <p class="challenge-text">Du skal plassere sangen p\u00e5 din egen tidslinje. (1 \u25CF brukt)</p>
+            <button class="btn btn-primary btn-large" onclick="Game.showChallengerTimeline()">Jeg er klar!</button>
+        `;
+    },
+
+    showChallengerTimeline() {
+        // Close BOTH overlays (challenge + reveal)
+        document.getElementById('challenge-overlay').classList.remove('active');
+        document.getElementById('song-reveal-overlay').classList.remove('active');
+
+        // Set up challenger placement mode
+        this._challengerMode = true;
+        this.isWaitingForPlacement = true;
+        this.hasPlayedSong = true; // Challenger doesn't need to listen again
+        this.selectedDropIndex = null;
+
+        // Update UI to show challenger's timeline
+        this.renderScores();
+        this.renderChallengerTimeline();
+
+        // Update the turn indicator
+        const el = document.getElementById('current-turn');
+        const challengerName = this.escapeHtml(this.players[this.challengePhase.challengerIndex].name);
+        el.innerHTML = `<strong>${challengerName}</strong> utfordrer — plasser sangen!`;
+    },
+
+    renderChallengerTimeline() {
+        const el = document.getElementById('timeline');
+        const player = this.players[this.challengePhase.challengerIndex];
+        const timeline = player.timeline;
+
+        let html = '';
+        html += this._renderChallengerDropZone(0, timeline.length === 0 ? 'Plasser her' : 'Eldst');
+
+        for (let i = 0; i < timeline.length; i++) {
+            const card = timeline[i];
+            html += `
+                <div class="timeline-card">
+                    <span class="card-year">${card.year}</span>
+                    <div class="card-info">
+                        <div class="card-title">${this.escapeHtml(card.title)}</div>
+                        <div class="card-artist">${this.escapeHtml(card.artist)}</div>
+                    </div>
+                </div>
+            `;
+            const label = i === timeline.length - 1 ? 'Nyest' : '';
+            html += this._renderChallengerDropZone(i + 1, label);
+        }
+
+        el.innerHTML = html;
+        el.classList.remove('timeline-empty');
+
+        const titleEl = document.getElementById('timeline-title');
+        titleEl.textContent = `${this.escapeHtml(player.name)}s tidslinje (${timeline.length} kort)`;
+        titleEl.classList.add('challenger');
+    },
+
+    _renderChallengerDropZone(index, label = '') {
+        return `
+            <div class="drop-zone" onclick="Game.onChallengerDropZoneClick(${index})">
+                <span>${label || 'Plasser her'}</span>
+            </div>
+        `;
+    },
+
+    onChallengerDropZoneClick(index) {
+        if (!this.isWaitingForPlacement || !this._challengerMode) return;
+        if (this._dropDebounce) return;
+        this._dropDebounce = true;
+        setTimeout(() => { this._dropDebounce = false; }, 300);
+        this.selectedDropIndex = index;
+        this.showChallengerPlacementConfirmation(index);
+    },
+
+    showChallengerPlacementConfirmation(index) {
+        const existing = document.querySelector('.confirm-placement');
+        if (existing) existing.remove();
+
+        const player = this.players[this.challengePhase.challengerIndex];
+        const timeline = player.timeline;
+
+        let positionText = '';
+        if (timeline.length === 0) {
+            positionText = 'Start tidslinjen med denne sangen?';
+        } else if (index === 0) {
+            positionText = `Plassere f\u00f8r ${timeline[0].year}?`;
+        } else if (index === timeline.length) {
+            positionText = `Plassere etter ${timeline[timeline.length - 1].year}?`;
+        } else {
+            positionText = `Plassere mellom ${timeline[index - 1].year} og ${timeline[index].year}?`;
+        }
+
+        const html = `
+            <div class="confirm-placement slide-up">
+                <p>${positionText}</p>
+                <div class="confirm-buttons">
+                    <button class="btn btn-secondary" onclick="Game.cancelChallengerPlacement()">Avbryt</button>
+                    <button class="btn btn-success" onclick="Game.confirmChallengerPlacement()">Bekreft</button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('screen-game').insertAdjacentHTML('beforeend', html);
+
+        document.querySelectorAll('.drop-zone').forEach((dz, i) => {
+            dz.classList.toggle('highlight', i === index);
+            if (i === index) {
+                dz.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    },
+
+    cancelChallengerPlacement() {
+        const existing = document.querySelector('.confirm-placement');
+        if (existing) existing.remove();
+        this.selectedDropIndex = null;
+        document.querySelectorAll('.drop-zone').forEach(dz => dz.classList.remove('highlight'));
+    },
+
+    confirmChallengerPlacement() {
+        const existing = document.querySelector('.confirm-placement');
+        if (existing) existing.remove();
+        if (this.selectedDropIndex !== null && this.isWaitingForPlacement) {
+            const idx = this.selectedDropIndex;
+            this.selectedDropIndex = null;
+            this.isWaitingForPlacement = false;
+            this._challengerMode = false;
+
+            this.challengePhase.challengerDropIndex = idx;
+
+            // Remove challenger styling from timeline title
+            document.getElementById('timeline-title').classList.remove('challenger');
+
+            this.saveState();
+            this.resolvePlacement();
+        }
+    },
+
+    // =============================================
+    // Resolution Logic
+    // =============================================
+
+    resolvePlacement() {
+        const cp = this.challengePhase;
+        if (!cp || !this.currentSong) return;
+
+        const originalPlayer = this.players[cp.originalPlayerIndex];
+        const originalCorrect = this.isPlacementCorrect(
+            originalPlayer.timeline, this.currentSong, cp.originalDropIndex
+        );
+
+        const card = {
+            title: this.currentSong.title,
+            artist: this.currentSong.artist,
+            year: this.currentSong.year,
+        };
+
+        let result;
+
+        if (cp.challengerIndex === null) {
+            // No challenge — standard behavior
+            if (originalCorrect) {
+                originalPlayer.timeline.splice(cp.originalDropIndex, 0, card);
+                originalPlayer.score = originalPlayer.timeline.length;
+            }
+            result = originalCorrect ? 'no_challenge_correct' : 'no_challenge_wrong';
+        } else {
+            const challenger = this.players[cp.challengerIndex];
+            const challengerCorrect = this.isPlacementCorrect(
+                challenger.timeline, this.currentSong, cp.challengerDropIndex
+            );
+
+            if (originalCorrect) {
+                // Original correct → original keeps card
+                originalPlayer.timeline.splice(cp.originalDropIndex, 0, card);
+                originalPlayer.score = originalPlayer.timeline.length;
+                result = 'original_wins';
+            } else if (challengerCorrect) {
+                // Original wrong, challenger correct → steal!
+                challenger.timeline.splice(cp.challengerDropIndex, 0, card);
+                challenger.score = challenger.timeline.length;
+                result = 'challenger_wins';
+            } else {
+                // Both wrong → nobody gets the card
+                result = 'nobody_wins';
+            }
+        }
+
+        this.saveState();
+        this.showReveal(result);
+    },
+
 
     // =============================================
     // State Persistence
@@ -673,6 +1137,8 @@ const Game = {
             currentSong: this.currentSong,
             hasPlayedSong: this.hasPlayedSong,
             isWaitingForPlacement: this.isWaitingForPlacement,
+            challengePhase: this.challengePhase,
+            titleArtistClaimed: this.titleArtistClaimed,
         };
         try {
             localStorage.setItem('hitster-game', JSON.stringify(state));
@@ -710,6 +1176,14 @@ const Game = {
             this.isWaitingForPlacement = !!state.isWaitingForPlacement;
             this.selectedDropIndex = null;
             this._isPlaying = false;
+            this.challengePhase = state.challengePhase || null;
+            this.titleArtistClaimed = !!state.titleArtistClaimed;
+            this._challengerMode = false;
+
+            // Backwards compatibility: ensure all players have tokens
+            this.players.forEach(p => {
+                if (typeof p.tokens !== 'number') p.tokens = 3;
+            });
             return true;
         } catch {
             // Corrupt data — clear it
@@ -757,9 +1231,14 @@ const Game = {
                     </div>
                     <span class="gm-player-name">${this.escapeHtml(player.name)}</span>
                     <div class="gm-player-actions">
-                        <button class="btn-icon btn-sm" onclick="Game.gmAdjustScore(${i}, -1)">−</button>
+                        <button class="btn-icon btn-sm" onclick="Game.gmAdjustScore(${i}, -1)">\u2212</button>
                         <span class="gm-player-score">${player.score}</span>
                         <button class="btn-icon btn-sm" onclick="Game.gmAdjustScore(${i}, 1)">+</button>
+                        <span class="gm-player-tokens-inline">
+                            <button class="btn-icon btn-xs" onclick="Game.gmAdjustTokens(${i}, -1)">\u2212</button>
+                            <span>\u25CF${player.tokens}</span>
+                            <button class="btn-icon btn-xs" onclick="Game.gmAdjustTokens(${i}, 1)">+</button>
+                        </span>
                         ${this.players.length > 2 ? `<button class="btn-icon btn-sm gm-btn-remove" onclick="Game.gmRemovePlayer(${i})">&times;</button>` : ''}
                     </div>
                 </div>`;
@@ -866,6 +1345,14 @@ const Game = {
         this.gmRenderTimeline();
     },
 
+    gmAdjustTokens(playerIndex, delta) {
+        const player = this.players[playerIndex];
+        player.tokens = Math.max(0, Math.min(this.MAX_TOKENS, player.tokens + delta));
+        this.saveState();
+        this.renderScores();
+        this.renderMenu();
+    },
+
     gmAddPlayer() {
         const input = document.getElementById('gm-new-player-name');
         const name = input.value.trim();
@@ -881,6 +1368,7 @@ const Game = {
             name,
             timeline: [{ title: startCard.title, artist: startCard.artist, year: startCard.year }],
             score: 1,
+            tokens: 3,
         });
 
         this.saveState();
@@ -892,6 +1380,25 @@ const Game = {
         if (this.players.length <= 2) return;
 
         const wasCurrentPlayer = playerIndex === this.currentPlayerIndex;
+
+        // If removed player is involved in an active challenge, cancel the challenge
+        if (this.challengePhase) {
+            const cp = this.challengePhase;
+            if (cp.challengerIndex === playerIndex || cp.originalPlayerIndex === playerIndex) {
+                this.challengePhase = null;
+                this._challengerMode = false;
+                document.getElementById('challenge-overlay').classList.remove('active');
+            } else {
+                // Adjust indices in challengePhase
+                if (cp.challengerIndex !== null && playerIndex < cp.challengerIndex) {
+                    cp.challengerIndex--;
+                }
+                if (playerIndex < cp.originalPlayerIndex) {
+                    cp.originalPlayerIndex--;
+                }
+            }
+        }
+
         this.players.splice(playerIndex, 1);
 
         if (this.currentPlayerIndex >= this.players.length) {
@@ -904,6 +1411,7 @@ const Game = {
             // Clean up any active placement state
             this.isWaitingForPlacement = false;
             this.selectedDropIndex = null;
+            this._challengerMode = false;
             const confirmEl = document.querySelector('.confirm-placement');
             if (confirmEl) confirmEl.remove();
 
@@ -939,6 +1447,11 @@ document.addEventListener('keydown', (e) => {
         // Close game master panel if open
         if (document.getElementById('gm-panel').classList.contains('active')) {
             Game.closeMenu();
+            return;
+        }
+        // Cancel challenger placement confirmation if visible
+        if (Game._challengerMode && Game.selectedDropIndex !== null) {
+            Game.cancelChallengerPlacement();
             return;
         }
         // Cancel placement confirmation if visible

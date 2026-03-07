@@ -77,7 +77,24 @@ const App = {
             this.showScreen('screen-game');
             Game.renderScores();
             if (Game.currentSong) {
-                Game.startTurn(Game.currentSong);
+                const cp = Game.challengePhase;
+                if (cp && cp.challengerIndex !== null && cp.challengerDropIndex === null) {
+                    // Mid-challenger placement: show challenger's timeline
+                    Game.renderCurrentTurn();
+                    Game.showChallengerTimeline();
+                } else if (cp && cp.challengerDropIndex !== null) {
+                    // Challenge resolved but reveal not shown — resolve again
+                    Game.renderCurrentTurn();
+                    Game.renderTimeline();
+                    Game.resolvePlacement();
+                } else if (cp && cp.challengerIndex === null && cp.originalDropIndex !== null) {
+                    // Pre-reveal state (placement confirmed, not yet resolved)
+                    Game.renderCurrentTurn();
+                    Game.renderTimeline();
+                    Game.showPreReveal();
+                } else {
+                    Game.startTurn(Game.currentSong);
+                }
             } else {
                 Game.showPassPhone();
             }

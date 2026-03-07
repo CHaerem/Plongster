@@ -2,10 +2,16 @@
 <html lang="no">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#0a0a0f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Hitster">
     <title>Hitster</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icons/icon-192.png" type="image/png">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -118,17 +124,42 @@
         <div class="game-actions" id="game-actions"></div>
     </div>
 
-    <!-- Song Reveal -->
+    <!-- Challenge Phase Overlay -->
+    <div id="challenge-overlay" class="overlay">
+        <div class="overlay-content" id="challenge-content">
+            <!-- Dynamic content from challenge flow -->
+        </div>
+    </div>
+
+    <!-- Song Reveal (two-phase: pre-reveal then result) -->
     <div id="song-reveal-overlay" class="overlay">
         <div class="overlay-content">
-            <div id="reveal-result-icon" class="reveal-icon"></div>
-            <h2 id="reveal-title"></h2>
-            <div class="reveal-song-info">
-                <p class="reveal-song-name" id="reveal-song-name"></p>
-                <p class="reveal-song-artist" id="reveal-song-artist"></p>
-                <p class="reveal-song-year" id="reveal-song-year"></p>
+            <!-- Phase 1: Pre-reveal — quick decision point -->
+            <div id="pre-reveal">
+                <div class="pre-reveal-icon">🎵</div>
+                <h2>Plasseringen er låst!</h2>
+                <button class="btn btn-outline btn-claim" id="btn-claim-title" onclick="Game.toggleTitleClaim()">🎤 Jeg vet tittel og artist (+1 ●)</button>
+                <div class="pre-reveal-buttons">
+                    <button class="btn btn-primary btn-large" onclick="Game.skipChallenge()">Vis resultat</button>
+                    <button class="btn btn-ghost" id="btn-challenge" onclick="Game.startChallenge()">⚔️ Utfordre (1 ●)</button>
+                </div>
             </div>
-            <button class="btn btn-primary" onclick="Game.nextTurn()">Neste tur</button>
+
+            <!-- Phase 2: Result — shown after resolve -->
+            <div id="reveal-result" style="display:none">
+                <div id="reveal-result-icon" class="reveal-icon"></div>
+                <h2 id="reveal-title"></h2>
+                <p id="reveal-subtitle" class="reveal-subtitle"></p>
+                <div class="reveal-song-info">
+                    <p class="reveal-song-name" id="reveal-song-name"></p>
+                    <p class="reveal-song-artist" id="reveal-song-artist"></p>
+                    <p class="reveal-song-year" id="reveal-song-year"></p>
+                </div>
+                <div id="token-award-section" class="token-award-section" style="display:none">
+                    <p id="token-award-text" class="token-award-text"></p>
+                </div>
+                <button class="btn btn-primary" onclick="Game.nextTurn()">Neste tur</button>
+            </div>
         </div>
     </div>
 
@@ -165,8 +196,26 @@
     </div>
 
     <script src="https://open.spotify.com/embed/iframe-api/v1"></script>
-    <script src="songs.js?v=17"></script>
-    <script src="game.js?v=17"></script>
-    <script src="app.js?v=17"></script>
+    <script src="songs.js?v=22"></script>
+    <script src="game.js?v=22"></script>
+    <script src="app.js?v=22"></script>
+    <script>
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').then(reg => {
+                // Check for updates periodically
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                            // New version available — the stale-while-revalidate strategy
+                            // ensures the next page load gets fresh assets
+                            console.log('Hitster oppdatert! Ny versjon klar ved neste lasting.');
+                        }
+                    });
+                });
+            }).catch(err => console.warn('SW registrering feilet:', err));
+        }
+    </script>
 </body>
 </html>

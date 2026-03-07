@@ -23,6 +23,9 @@
     --radius-sm: 8px;
     --border: rgba(255,255,255,0.1);
     --safe-bottom: env(safe-area-inset-bottom, 16px);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
 }
 
 body {
@@ -892,6 +895,181 @@ h3 {
     font-weight: 800;
 }
 
+/* Pre-reveal (decision point before result) */
+.pre-reveal-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.pre-reveal-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+/* Challenge overlay sits on top of reveal overlay */
+#challenge-overlay {
+    z-index: 110;
+}
+
+/* Challenge Phase */
+.challenge-text {
+    color: var(--text-dim);
+    font-size: 15px;
+    margin: 8px 0 20px;
+    line-height: 1.5;
+}
+
+.challenge-player-name {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.challenge-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.challenge-player-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+.challenge-player-btn {
+    width: 100%;
+    padding: 14px 20px;
+    background: var(--bg-card);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    touch-action: manipulation;
+}
+
+.challenge-player-btn:active {
+    background: rgba(29, 185, 84, 0.15);
+    border-color: var(--accent);
+    transform: scale(0.98);
+}
+
+/* Reveal subtitle (for challenge results) */
+.reveal-subtitle {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 4px;
+    min-height: 0;
+}
+
+.reveal-subtitle:empty {
+    display: none;
+}
+
+.reveal-subtitle.stolen {
+    color: var(--warning);
+    font-weight: 600;
+}
+
+/* Stolen icon */
+.reveal-icon.stolen::after {
+    content: '⚔️';
+}
+
+/* Token count in score chips */
+.token-count {
+    font-size: 11px;
+    opacity: 0.7;
+    margin-left: 4px;
+}
+
+.score-chip.active .token-count {
+    opacity: 0.8;
+}
+
+.token-icon {
+    color: #f5c842;
+    font-size: 0.85em;
+    margin-right: 1px;
+}
+
+/* Title/Artist claim button on pre-reveal */
+.btn-claim {
+    margin-top: 16px;
+    padding: 10px 20px;
+    font-size: 14px;
+    width: 100%;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+}
+
+.btn-claim.active {
+    background: rgba(29, 185, 84, 0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.btn-claim:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* Token award section on reveal */
+.token-award-section {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: 16px;
+    padding-top: 12px;
+}
+
+.token-award-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-dim);
+}
+
+.token-award-text.earned {
+    color: var(--accent);
+}
+
+/* Game action buttons (skip / trade) */
+.game-actions .action-btn {
+    font-size: 12px;
+    padding: 8px 14px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.game-actions .action-btn:active {
+    background: rgba(255,255,255,0.1);
+}
+
+/* GM panel token controls */
+.gm-player-tokens-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 12px;
+    margin-left: 4px;
+    color: var(--text-dim);
+}
+
+/* Challenger timeline styling */
+.timeline-title.challenger {
+    color: var(--warning);
+}
+
 /* Animations */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
@@ -1216,6 +1394,44 @@ h3 {
 
 .gm-btn-restart {
     width: 100%;
+}
+
+/* PWA Standalone Mode */
+@media (display-mode: standalone) {
+    /* Extra top padding for notch/status bar area */
+    .game-header {
+        padding-top: calc(var(--safe-top) + 8px);
+    }
+
+    .screen-content {
+        padding-top: calc(var(--safe-top) + 40px);
+    }
+
+    /* Ensure overlays respect safe areas */
+    .overlay-content {
+        margin-top: var(--safe-top);
+    }
+
+    /* Side safe areas for landscape edge case */
+    .game-area {
+        padding-left: calc(var(--safe-left) + 16px);
+        padding-right: calc(var(--safe-right) + 16px);
+    }
+
+    .game-actions {
+        padding-left: calc(var(--safe-left) + 16px);
+        padding-right: calc(var(--safe-right) + 16px);
+    }
+
+    /* Prevent overscroll bounce in standalone */
+    body {
+        overflow: hidden;
+    }
+
+    .screen.active {
+        overflow-y: auto;
+        height: 100dvh;
+    }
 }
 
 /* Responsive */
