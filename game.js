@@ -456,10 +456,10 @@ const Game = {
         const p = this.currentPlayer;
         let html = '';
         if (p.tokens >= 1) {
-            html += `<button class="btn btn-ghost btn-sm action-btn" onclick="Game.skipSongWithToken()">\u23ED Hopp over (1 \u{1F536})</button>`;
+            html += `<button class="btn btn-ghost action-btn" onclick="Game.skipSongWithToken()">\u23ED Hopp over (1 \u{1F536})</button>`;
         }
         if (p.tokens >= 3) {
-            html += `<button class="btn btn-ghost btn-sm action-btn" onclick="Game.tradeTokensForCard()">\u{1F504} Bytt 3 \u{1F536} \u2192 1 kort</button>`;
+            html += `<button class="btn btn-ghost action-btn" onclick="Game.tradeTokensForCard()">\u{1F504} Bytt 3 \u{1F536} \u2192 1 kort</button>`;
         }
         el.innerHTML = html;
     },
@@ -1052,7 +1052,7 @@ const Game = {
 
         // Show cancel button in game actions area
         const actionsEl = document.getElementById('game-actions');
-        actionsEl.innerHTML = `<button class="btn btn-ghost btn-sm action-btn" onclick="Game.cancelChallengeFromTimeline()">Angre utfordring (\u{1F536} refunderes)</button>`;
+        actionsEl.innerHTML = `<button class="btn btn-ghost action-btn" onclick="Game.cancelChallengeFromTimeline()">Angre utfordring (\u{1F536} refunderes)</button>`;
     },
 
     renderChallengerTimeline() {
