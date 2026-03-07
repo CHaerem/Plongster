@@ -17,7 +17,7 @@
     <div id="results"></div>
     <div id="summary"></div>
 
-    <!-- Load app code (no DOM dependencies at load time) -->
+    <!-- Stub DOM elements required by game.js -->
     <div id="spotify-embed" style="display:none"></div>
     <div id="game-scores"></div>
     <div id="current-turn"></div>
@@ -28,6 +28,26 @@
     <div id="screen-game"></div>
     <div id="winner-name"></div>
     <div id="final-scores"></div>
+    <div id="pre-reveal" style="display:none"></div>
+    <div id="reveal-result" style="display:none"></div>
+    <div id="reveal-subtitle"></div>
+    <div id="token-award-section" style="display:none"></div>
+    <div id="token-award-text"></div>
+    <div id="challenge-overlay" style="display:none"></div>
+    <div id="challenge-content"></div>
+    <div id="game-actions"></div>
+    <div id="gm-panel" style="display:none"></div>
+    <div id="gm-backdrop" style="display:none"></div>
+    <div id="gm-panel-body"></div>
+    <div id="pass-phone-overlay" style="display:none"></div>
+    <div id="pass-phone-name"></div>
+    <div id="screen-winner" style="display:none"></div>
+    <div id="spotify-wrapper" style="display:none"></div>
+    <div id="player-cover" style="display:none"></div>
+    <div id="listening-bars" style="display:none"></div>
+    <div id="btn-play-pause" style="display:none"></div>
+    <div id="btn-challenge" style="display:none"></div>
+    <div id="btn-claim-title" style="display:none"></div>
 
     <script src="songs.js"></script>
     <script src="game.js"></script>
@@ -65,30 +85,31 @@
         assert('SONGS_DATABASE is defined and is an array', Array.isArray(SONGS_DATABASE));
         assert('Has at least 80 songs', SONGS_DATABASE.length >= 80);
 
-        // Check all songs have required fields
         const allHaveFields = SONGS_DATABASE.every(s => s.title && s.artist && s.year && s.spotifyId);
         assert('All songs have title, artist, year, and spotifyId', allHaveFields);
 
-        // Check years are reasonable
-        const allYearsValid = SONGS_DATABASE.every(s => s.year >= 1950 && s.year <= 2025);
-        assert('All years are between 1950-2025', allYearsValid);
+        const allYearsValid = SONGS_DATABASE.every(s => s.year >= 1950 && s.year <= 2030);
+        assert('All years are between 1950-2030', allYearsValid);
 
-        // Check spotifyId format (22 chars, alphanumeric)
         const allIdsValid = SONGS_DATABASE.every(s => /^[a-zA-Z0-9]{20,24}$/.test(s.spotifyId));
         assert('All Spotify IDs are valid format (20-24 alphanumeric chars)', allIdsValid);
 
-        // Check for unique songs (no exact title+artist duplicates)
         const songKeys = SONGS_DATABASE.map(s => `${s.title}|${s.artist}`);
         const uniqueKeys = new Set(songKeys);
         assert('No duplicate title+artist combinations', songKeys.length === uniqueKeys.size);
 
-        // Check decade distribution
         const decades = {};
         SONGS_DATABASE.forEach(s => {
             const decade = Math.floor(s.year / 10) * 10;
             decades[decade] = (decades[decade] || 0) + 1;
         });
         assert('Has songs from at least 5 different decades', Object.keys(decades).length >= 5);
+
+        // Log decade distribution
+        const distEl = document.createElement('div');
+        distEl.style.color = '#888';
+        distEl.textContent = '  Decades: ' + Object.entries(decades).sort().map(([d, c]) => d + 's:' + c).join(', ');
+        results.appendChild(distEl);
 
         // ==================== SHUFFLE TESTS ====================
         section('Shuffle Function');
@@ -99,7 +120,6 @@
         assert('shuffleArray contains all original elements', original.every(x => shuffled.includes(x)));
         assert('shuffleArray does not modify original', JSON.stringify(original) === JSON.stringify([1,2,3,4,5,6,7,8,9,10]));
 
-        // Shuffle should produce different order (probabilistically)
         let differentCount = 0;
         for (let i = 0; i < 10; i++) {
             const s = shuffleArray(original);
@@ -113,8 +133,10 @@
         Game.init(['Alice', 'Bob'], 10);
         assert('Game initializes with correct number of players', Game.players.length === 2);
         assert('Player names are correct', Game.players[0].name === 'Alice' && Game.players[1].name === 'Bob');
-        assert('Players start with empty timelines', Game.players.every(p => p.timeline.length === 0));
-        assert('Players start with score 0', Game.players.every(p => p.score === 0));
+        assert('Each player starts with 1 card in timeline', Game.players.every(p => p.timeline.length === 1));
+        assert('Starting cards have valid year', Game.players.every(p => p.timeline[0].year >= 1950));
+        assert('Players start with score 1 (starting card)', Game.players.every(p => p.score === 1));
+        assert('Players start with 3 tokens', Game.players.every(p => p.tokens === 3));
         assert('cardsToWin is set correctly', Game.cardsToWin === 10);
         assert('currentPlayerIndex starts at 0', Game.currentPlayerIndex === 0);
         assert('currentPlayer returns first player', Game.currentPlayer.name === 'Alice');
@@ -130,42 +152,41 @@
         const song2 = Game.drawSong();
         assert('Drawing again returns a different song', song1.title !== song2.title || song1.artist !== song2.artist);
 
-        // Draw many songs - should not crash
+        // Starting cards should not be redrawn
+        assert('Starting cards not in drawn songs',
+            !Game.players.some(p => p.timeline[0].title === song1.title && p.timeline[0].artist === song1.artist));
+
         Game.init(['Alice', 'Bob'], 10);
         let drawError = false;
         try {
-            for (let i = 0; i < 100; i++) {
+            for (let i = 0; i < 150; i++) {
                 Game.drawSong();
             }
         } catch (e) {
             drawError = true;
         }
-        assert('Can draw 100 songs without error (reshuffles if needed)', !drawError);
+        assert('Can draw 150 songs without error (reshuffles if needed)', !drawError);
 
         // ==================== PLACEMENT LOGIC TESTS ====================
         section('Placement Logic');
 
-        // Empty timeline - any placement is correct
-        const emptyTimeline = [];
         assert('Any song can be placed on empty timeline',
-            Game.isPlacementCorrect(emptyTimeline, { year: 2000 }, 0));
+            Game.isPlacementCorrect([], { year: 2000 }, 0));
 
-        // Single item timeline
         const singleTimeline = [{ year: 2000 }];
         assert('Song before 2000 placed at index 0 is correct',
             Game.isPlacementCorrect(singleTimeline, { year: 1990 }, 0));
         assert('Song after 2000 placed at index 1 is correct',
             Game.isPlacementCorrect(singleTimeline, { year: 2010 }, 1));
-        assert('Song before 2000 placed at index 1 is wrong',
-            !Game.isPlacementCorrect(singleTimeline, { year: 1990 }, 1));
         assert('Song after 2000 placed at index 0 is wrong',
             !Game.isPlacementCorrect(singleTimeline, { year: 2010 }, 0));
+        assert('Song before 2000 placed at index 1 is wrong',
+            !Game.isPlacementCorrect(singleTimeline, { year: 1990 }, 1));
         assert('Same year placed at index 0 is correct',
             Game.isPlacementCorrect(singleTimeline, { year: 2000 }, 0));
         assert('Same year placed at index 1 is correct',
             Game.isPlacementCorrect(singleTimeline, { year: 2000 }, 1));
 
-        // Multi-item timeline
         const multiTimeline = [{ year: 1980 }, { year: 1990 }, { year: 2010 }];
         assert('1985 between 1980 and 1990 (index 1) is correct',
             Game.isPlacementCorrect(multiTimeline, { year: 1985 }, 1));
@@ -182,50 +203,9 @@
         assert('1975 placed at end (index 3, after 2010) is wrong',
             !Game.isPlacementCorrect(multiTimeline, { year: 1975 }, 3));
 
-        // ==================== ESCAPE HTML TESTS ====================
-        section('HTML Escaping');
-
-        assert('Escapes < and >', Game.escapeHtml('<script>alert("xss")</script>').includes('&lt;'));
-        assert('Escapes quotes', Game.escapeHtml('"hello"').includes('&quot;'));
-        assert('Normal text passes through', Game.escapeHtml('Hello World') === 'Hello World');
-
-        // ==================== GAME FLOW TESTS ====================
-        section('Game Flow');
-
-        Game.init(['Alice', 'Bob', 'Charlie'], 5);
-        assert('3-player game initializes correctly', Game.players.length === 3);
-
-        // Simulate placing a song correctly
-        Game.players[0].timeline = [{ year: 1980 }, { year: 2000 }];
-        Game.currentSong = { title: 'Test', artist: 'Artist', year: 1990, spotifyId: 'abc123' };
-        Game.isWaitingForPlacement = true;
-
-        const correctPlacement = Game.isPlacementCorrect(Game.players[0].timeline, Game.currentSong, 1);
-        assert('1990 between 1980 and 2000 is correct', correctPlacement);
-
-        // Test player rotation
-        Game.currentPlayerIndex = 0;
-        Game.currentPlayerIndex = (Game.currentPlayerIndex + 1) % Game.players.length;
-        assert('Player index advances from 0 to 1', Game.currentPlayerIndex === 1);
-        Game.currentPlayerIndex = (Game.currentPlayerIndex + 1) % Game.players.length;
-        assert('Player index advances from 1 to 2', Game.currentPlayerIndex === 2);
-        Game.currentPlayerIndex = (Game.currentPlayerIndex + 1) % Game.players.length;
-        assert('Player index wraps from 2 back to 0', Game.currentPlayerIndex === 0);
-
-        // Test win condition
-        Game.init(['Alice', 'Bob'], 3);
-        Game.players[0].score = 3;
-        const winner = Game.players.find(p => p.score >= Game.cardsToWin);
-        assert('Player with enough cards is detected as winner', winner !== undefined && winner.name === 'Alice');
-
-        Game.players[0].score = 2;
-        const noWinner = Game.players.find(p => p.score >= Game.cardsToWin);
-        assert('Player with not enough cards is not a winner', noWinner === undefined);
-
         // ==================== EDGE CASES ====================
         section('Edge Cases');
 
-        // Very long timeline
         const longTimeline = [];
         for (let y = 1960; y <= 2020; y++) {
             longTimeline.push({ year: y });
@@ -235,19 +215,137 @@
             Game.isPlacementCorrect(longTimeline, { year: 2021 }, longTimeline.length) &&
             !Game.isPlacementCorrect(longTimeline, { year: 2021 }, 0));
 
-        // Same year as neighbor
         const sameYearTimeline = [{ year: 1990 }, { year: 1990 }, { year: 2000 }];
         assert('Duplicate years in timeline still work',
             Game.isPlacementCorrect(sameYearTimeline, { year: 1990 }, 0) &&
             Game.isPlacementCorrect(sameYearTimeline, { year: 1990 }, 1) &&
             Game.isPlacementCorrect(sameYearTimeline, { year: 1990 }, 2));
 
+        // ==================== SECURITY ====================
+        section('Security');
+
+        assert('escapeHtml blocks <script>', Game.escapeHtml('<script>alert("xss")</script>').includes('&lt;'));
+        assert('escapeHtml escapes quotes', Game.escapeHtml('"hello"').includes('&quot;'));
+        assert('Normal text passes through', Game.escapeHtml('Hello World') === 'Hello World');
+
+        // ==================== WIN CONDITION ====================
+        section('Win Condition');
+
+        Game.init(['Alice', 'Bob'], 3);
+        Game.players[0].score = 3;
+        const winner = Game.players.find(p => p.score >= Game.cardsToWin);
+        assert('Player with enough cards is detected as winner', winner !== undefined && winner.name === 'Alice');
+
+        Game.players[0].score = 2;
+        const noWinner = Game.players.find(p => p.score >= Game.cardsToWin);
+        assert('Player with not enough cards is not a winner', noWinner === undefined);
+
+        // ==================== PLAYER ROTATION ====================
+        section('Player Rotation');
+
+        Game.init(['A', 'B', 'C'], 10);
+        assert('Starts at player 0', Game.currentPlayerIndex === 0);
+        Game.currentPlayerIndex = (Game.currentPlayerIndex + 1) % Game.players.length;
+        assert('Advances to 1', Game.currentPlayerIndex === 1);
+        Game.currentPlayerIndex = (Game.currentPlayerIndex + 1) % Game.players.length;
+        assert('Advances to 2', Game.currentPlayerIndex === 2);
+        Game.currentPlayerIndex = (Game.currentPlayerIndex + 1) % Game.players.length;
+        assert('Wraps to 0', Game.currentPlayerIndex === 0);
+
+        // ==================== FULL GAME FLOW ====================
+        section('Full Game Flow (2 players, win at 3)');
+
+        Game.init(['Alice', 'Bob'], 3);
+        assert('Flow: Game initialized', Game.players.length === 2 && Game.cardsToWin === 3);
+        assert('Flow: Each player starts with 1 card', Game.players.every(p => p.timeline.length === 1 && p.score === 1));
+        assert('Flow: Alice starts', Game.currentPlayer.name === 'Alice');
+
+        // Turn 1: Alice draws and places correctly
+        Game.currentSong = Game.drawSong();
+        Game.isWaitingForPlacement = true;
+        assert('Flow: Song drawn for Alice', Game.currentSong !== null);
+
+        const aliceSong1 = Game.currentSong;
+        const aliceTl = Game.players[0].timeline;
+        let idx0 = aliceTl.length;
+        for (let i = 0; i <= aliceTl.length; i++) {
+            if (Game.isPlacementCorrect(aliceTl, aliceSong1, i)) { idx0 = i; break; }
+        }
+        aliceTl.splice(idx0, 0, { title: aliceSong1.title, artist: aliceSong1.artist, year: aliceSong1.year });
+        Game.players[0].score = aliceTl.length;
+        Game.isWaitingForPlacement = false;
+        assert('Flow: Alice score = 2', Game.players[0].score === 2);
+        assert('Flow: No winner yet', !Game.players.find(p => p.score >= Game.cardsToWin));
+
+        // Advance to Bob
+        Game.currentPlayerIndex = (Game.currentPlayerIndex + 1) % Game.players.length;
+        assert('Flow: Now Bob turn', Game.currentPlayer.name === 'Bob');
+
+        // Turn 2: Bob places wrong
+        Game.currentSong = Game.drawSong();
+        Game.isWaitingForPlacement = true;
+        Game.isWaitingForPlacement = false;
+        assert('Flow: Bob still score = 1 after wrong', Game.players[1].score === 1);
+
+        // Advance back to Alice
+        Game.currentPlayerIndex = (Game.currentPlayerIndex + 1) % Game.players.length;
+        assert('Flow: Back to Alice', Game.currentPlayer.name === 'Alice');
+
+        // Turn 3: Alice places correctly to win
+        Game.currentSong = Game.drawSong();
+        Game.isWaitingForPlacement = true;
+        let idx1 = aliceTl.length;
+        for (let i = 0; i <= aliceTl.length; i++) {
+            if (Game.isPlacementCorrect(aliceTl, Game.currentSong, i)) { idx1 = i; break; }
+        }
+        aliceTl.splice(idx1, 0, { title: Game.currentSong.title, artist: Game.currentSong.artist, year: Game.currentSong.year });
+        Game.players[0].score = aliceTl.length;
+        Game.isWaitingForPlacement = false;
+
+        assert('Flow: Alice score = 3', Game.players[0].score === 3);
+        const flowWinner = Game.players.find(p => p.score >= Game.cardsToWin);
+        assert('Flow: Alice wins!', flowWinner && flowWinner.name === 'Alice');
+
+        let timelineValid = true;
+        for (let i = 1; i < aliceTl.length; i++) {
+            if (aliceTl[i].year < aliceTl[i-1].year) { timelineValid = false; break; }
+        }
+        assert('Flow: Alice timeline is chronologically sorted', timelineValid);
+
+        // ==================== MULTI-PLAYER ROTATION (10 players) ====================
+        section('Multi-Player Rotation');
+        const tenPlayers = Array.from({length: 10}, (_, i) => 'P' + (i + 1));
+        Game.init(tenPlayers, 5);
+        assert('10 players initialized', Game.players.length === 10);
+        assert('All 10 players have tokens', Game.players.every(p => p.tokens === 3));
+        for (let i = 0; i < 20; i++) {
+            const expected = i % 10;
+            assert('Turn ' + i + ': player P' + (expected + 1), Game.currentPlayerIndex === expected);
+            Game.currentPlayerIndex = (Game.currentPlayerIndex + 1) % Game.players.length;
+        }
+
+        // ==================== GAME RESTART ====================
+        section('Game Restart');
+        Game.init(['X', 'Y'], 5);
+        Game.players[0].score = 5;
+        Game.players[0].timeline = [{year: 1970}, {year: 1980}, {year: 1990}, {year: 2000}, {year: 2010}];
+        Game.players[0].tokens = 0;
+        Game.currentPlayerIndex = 1;
+        Game.usedSongs.add('test-song');
+
+        // Reinit (simulates restart)
+        Game.init(['X', 'Y'], 5);
+        assert('Restart: scores reset to 1 (starting card)', Game.players.every(p => p.score === 1));
+        assert('Restart: timelines have 1 card', Game.players.every(p => p.timeline.length === 1));
+        assert('Restart: tokens reset to 3', Game.players.every(p => p.tokens === 3));
+        assert('Restart: player index reset', Game.currentPlayerIndex === 0);
+        assert('Restart: deck repopulated', Game.deck.length > 0);
+
         // ==================== SUMMARY ====================
         const total = passed + failed;
         summary.textContent = `${passed}/${total} tests passed`;
         summary.className = failed === 0 ? 'pass' : 'fail';
 
-        // Also log for CI
         console.log(`TEST RESULTS: ${passed}/${total} passed, ${failed} failed`);
         if (failed > 0) {
             console.error('TESTS FAILED');

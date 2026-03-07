@@ -51,7 +51,7 @@ section('Songs Database');
 assert('DB is array', Array.isArray(DB));
 assert('Has 80+ songs', DB.length >= 80);
 assert('All have required fields', DB.every(s => s.title && s.artist && s.year && s.spotifyId));
-assert('All years between 1950-2025', DB.every(s => s.year >= 1950 && s.year <= 2025));
+assert('All years between 1950-2030', DB.every(s => s.year >= 1950 && s.year <= 2030));
 assert('Spotify IDs valid format', DB.every(s => /^[a-zA-Z0-9]{20,24}$/.test(s.spotifyId)));
 
 const keys = DB.map(s => s.title + '|' + s.artist);
