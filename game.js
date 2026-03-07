@@ -589,22 +589,19 @@ const Game = {
             navigator.vibrate(isPositive ? [50] : [100, 50, 100]);
         }
 
-        // Token award for title/artist claim
+        // Token award for title/artist claim — ask for confirmation
         const tokenSection = document.getElementById('token-award-section');
         const tokenText = document.getElementById('token-award-text');
+        const tokenButtons = document.getElementById('token-award-buttons');
         if (this.titleArtistClaimed) {
             const claimPlayer = this.players[this.challengePhase.originalPlayerIndex];
-            if (claimPlayer.tokens < this.MAX_TOKENS) {
-                claimPlayer.tokens += 1;
-                tokenText.textContent = `${this.escapeHtml(claimPlayer.name)} fikk +1 \u{1F536} for tittel og artist! (\u{1F536}${claimPlayer.tokens})`;
-                tokenText.className = 'token-award-text earned';
-            } else {
-                tokenText.textContent = `Maks tokens (${this.MAX_TOKENS}) \u2014 ingen token tildelt`;
-                tokenText.className = 'token-award-text';
-            }
+            tokenText.textContent = `${this.escapeHtml(claimPlayer.name)} hevdet \u00e5 vite tittel og artist \u2014 stemte det?`;
+            tokenText.className = 'token-award-text';
+            tokenButtons.style.display = '';
             tokenSection.style.display = '';
         } else {
             tokenSection.style.display = 'none';
+            tokenButtons.style.display = 'none';
         }
 
         this.saveState();
@@ -869,6 +866,30 @@ const Game = {
             btn.classList.toggle('active', this.titleArtistClaimed);
         }
         this.saveState();
+    },
+
+    // Confirm or deny title/artist claim after reveal
+    confirmTitleClaim(correct) {
+        const tokenText = document.getElementById('token-award-text');
+        const tokenButtons = document.getElementById('token-award-buttons');
+        const claimPlayer = this.players[this.challengePhase.originalPlayerIndex];
+
+        if (correct) {
+            if (claimPlayer.tokens < this.MAX_TOKENS) {
+                claimPlayer.tokens += 1;
+                tokenText.textContent = `${this.escapeHtml(claimPlayer.name)} fikk +1 \u{1F536} for tittel og artist! (\u{1F536}${claimPlayer.tokens})`;
+                tokenText.className = 'token-award-text earned';
+            } else {
+                tokenText.textContent = `Riktig! Men maks tokens (${this.MAX_TOKENS}) \u2014 ingen token tildelt`;
+                tokenText.className = 'token-award-text';
+            }
+        } else {
+            tokenText.textContent = `${this.escapeHtml(claimPlayer.name)} gjettet feil \u2014 ingen token`;
+            tokenText.className = 'token-award-text';
+        }
+        tokenButtons.style.display = 'none';
+        this.saveState();
+        this.renderScores();
     },
 
     // No challenge — go straight to resolve and show result

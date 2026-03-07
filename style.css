@@ -1068,6 +1068,17 @@ body.overlay-active {
     color: var(--accent);
 }
 
+.token-award-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.token-award-buttons .btn {
+    min-width: 100px;
+}
+
 /* Game action buttons (skip / trade) */
 .game-actions .action-btn {
     font-size: 13px;
