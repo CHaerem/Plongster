@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="no">
+<html lang="nb">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
@@ -138,10 +138,10 @@
             <div id="pre-reveal">
                 <div class="pre-reveal-icon">🎵</div>
                 <h2>Plasseringen er låst!</h2>
-                <button class="btn btn-outline btn-claim" id="btn-claim-title" onclick="Game.toggleTitleClaim()">🎤 Jeg vet tittel og artist (+1 ●)</button>
+                <button class="btn btn-claim" id="btn-claim-title" onclick="Game.toggleTitleClaim()">🎤 Jeg vet tittel og artist (+1 🔶)</button>
                 <div class="pre-reveal-buttons">
                     <button class="btn btn-primary btn-large" onclick="Game.skipChallenge()">Vis resultat</button>
-                    <button class="btn btn-ghost" id="btn-challenge" onclick="Game.startChallenge()">⚔️ Utfordre (1 ●)</button>
+                    <button class="btn btn-ghost" id="btn-challenge" onclick="Game.startChallenge()">⚔️ Utfordre (1 🔶)</button>
                 </div>
             </div>
 
@@ -196,13 +196,13 @@
     </div>
 
     <script src="https://open.spotify.com/embed/iframe-api/v1"></script>
-    <script src="songs.js?v=22"></script>
-    <script src="game.js?v=22"></script>
-    <script src="app.js?v=22"></script>
+    <script src="songs.js"></script>
+    <script src="game.js"></script>
+    <script src="app.js"></script>
     <script>
         // Register Service Worker for PWA
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').then(reg => {
+            navigator.serviceWorker.register('./sw.js').then(reg => {
                 // Check for updates periodically
                 reg.addEventListener('updatefound', () => {
                     const newWorker = reg.installing;

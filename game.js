@@ -21,7 +21,9 @@ const Game = {
         this.cardsToWin = cardsToWin;
         this.currentPlayerIndex = 0;
         this.usedSongs = new Set();
-        this.deck = shuffleArray(SONGS_DATABASE);
+        // Snapshot the database at init time to prevent mid-game corruption
+        this._gameDatabase = [...SONGS_DATABASE];
+        this.deck = shuffleArray(this._gameDatabase);
         this.currentSong = null;
         this.isWaitingForPlacement = false;
         this.selectedDropIndex = null;
@@ -33,6 +35,7 @@ const Game = {
         // Each player starts with 1 card in their timeline and 3 tokens
         this.players = playerNames.map(name => {
             const startCard = this.drawSong();
+            if (!startCard) return { name, timeline: [], score: 0, tokens: 3 };
             return {
                 name,
                 timeline: [{ title: startCard.title, artist: startCard.artist, year: startCard.year }],
@@ -62,8 +65,9 @@ const Game = {
                 return song;
             }
         }
-        // Try to find remaining unused songs
-        this.deck = shuffleArray(SONGS_DATABASE.filter(s => !this.usedSongs.has(this._songKey(s))));
+        // Try to find remaining unused songs (use snapshot if available, else global)
+        const db = this._gameDatabase || SONGS_DATABASE;
+        this.deck = shuffleArray(db.filter(s => !this.usedSongs.has(this._songKey(s))));
         if (this.deck.length > 0) {
             const song = this.deck.pop();
             this.usedSongs.add(this._songKey(song));
@@ -81,7 +85,7 @@ const Game = {
         const scoresEl = document.getElementById('final-scores');
         scoresEl.innerHTML = '<p style="margin-bottom:10px;color:var(--text-dim)">Alle sanger er brukt opp!</p>' +
             this.players.map(p =>
-                `<div class="final-score-row"><span>${this.escapeHtml(p.name)}</span><span>${p.score} kort \u00B7 \u25CF${p.tokens}</span></div>`
+                `<div class="final-score-row"><span>${this.escapeHtml(p.name)}</span><span>${p.score} kort \u00B7 \u{1F536}${p.tokens}</span></div>`
             ).join('');
         localStorage.removeItem('hitster-game-state');
         App.showScreen('screen-winner');
@@ -209,6 +213,9 @@ const Game = {
     // Create fresh Spotify controller with timeout and retry logic
     _createSpotifyController(spotifyId, gen, attempt) {
         if (gen !== this._loadGeneration) return;
+
+        // Nullify old controller to prevent stale listener callbacks
+        this.embedController = null;
 
         const uri = `spotify:track:${spotifyId}`;
         const container = document.getElementById('spotify-embed');
@@ -394,9 +401,9 @@ const Game = {
 
     // Skip current song using a token (player action, costs 1 token)
     skipSongWithToken() {
-        if (this._actionDebounce) return;
-        this._actionDebounce = true;
-        setTimeout(() => { this._actionDebounce = false; }, 500);
+        if (this._skipDebounce) return;
+        this._skipDebounce = true;
+        setTimeout(() => { this._skipDebounce = false; }, 500);
 
         const player = this.currentPlayer;
         if (player.tokens < 1) return;
@@ -408,9 +415,9 @@ const Game = {
 
     // Trade 3 tokens for a free card placed on timeline
     tradeTokensForCard() {
-        if (this._actionDebounce) return;
-        this._actionDebounce = true;
-        setTimeout(() => { this._actionDebounce = false; }, 500);
+        if (this._tradeDebounce) return;
+        this._tradeDebounce = true;
+        setTimeout(() => { this._tradeDebounce = false; }, 500);
 
         const player = this.currentPlayer;
         if (player.tokens < 3) return;
@@ -449,10 +456,10 @@ const Game = {
         const p = this.currentPlayer;
         let html = '';
         if (p.tokens >= 1) {
-            html += `<button class="btn btn-ghost btn-sm action-btn" onclick="Game.skipSongWithToken()">\u23ED Hopp over (1 \u25CF)</button>`;
+            html += `<button class="btn btn-ghost btn-sm action-btn" onclick="Game.skipSongWithToken()">\u23ED Hopp over (1 \u{1F536})</button>`;
         }
         if (p.tokens >= 3) {
-            html += `<button class="btn btn-ghost btn-sm action-btn" onclick="Game.tradeTokensForCard()">\u{1F504} Bytt 3 \u25CF \u2192 1 kort</button>`;
+            html += `<button class="btn btn-ghost btn-sm action-btn" onclick="Game.tradeTokensForCard()">\u{1F504} Bytt 3 \u{1F536} \u2192 1 kort</button>`;
         }
         el.innerHTML = html;
     },
@@ -513,11 +520,10 @@ const Game = {
 
     showReveal(result) {
         // Close challenge overlay if open (after challenger flow)
-        document.getElementById('challenge-overlay').classList.remove('active');
+        this._hideOverlay('challenge-overlay');
 
         // Make sure reveal overlay is open
-        const overlay = document.getElementById('song-reveal-overlay');
-        overlay.classList.add('active');
+        this._showOverlay('song-reveal-overlay');
 
         // Switch from pre-reveal to result
         document.getElementById('pre-reveal').style.display = 'none';
@@ -582,7 +588,7 @@ const Game = {
             const claimPlayer = this.players[this.challengePhase.originalPlayerIndex];
             if (claimPlayer.tokens < this.MAX_TOKENS) {
                 claimPlayer.tokens += 1;
-                tokenText.textContent = `${this.escapeHtml(claimPlayer.name)} fikk +1 \u25CF for tittel og artist! (\u25CF${claimPlayer.tokens})`;
+                tokenText.textContent = `${this.escapeHtml(claimPlayer.name)} fikk +1 \u{1F536} for tittel og artist! (\u{1F536}${claimPlayer.tokens})`;
                 tokenText.className = 'token-award-text earned';
             } else {
                 tokenText.textContent = `Maks tokens (${this.MAX_TOKENS}) \u2014 ingen token tildelt`;
@@ -603,8 +609,7 @@ const Game = {
         this.titleArtistClaimed = false;
         this._challengerMode = false;
 
-        const overlay = document.getElementById('song-reveal-overlay');
-        overlay.classList.remove('active');
+        this._hideOverlay('song-reveal-overlay');
 
         // Reset reveal overlay sections for next time
         document.getElementById('pre-reveal').style.display = '';
@@ -626,13 +631,12 @@ const Game = {
     },
 
     showPassPhone() {
-        const passOverlay = document.getElementById('pass-phone-overlay');
         document.getElementById('pass-phone-name').textContent = this.currentPlayer.name;
-        passOverlay.classList.add('active');
+        this._showOverlay('pass-phone-overlay');
     },
 
     onPlayerReady() {
-        document.getElementById('pass-phone-overlay').classList.remove('active');
+        this._hideOverlay('pass-phone-overlay');
         this.startTurn();
     },
 
@@ -646,7 +650,7 @@ const Game = {
         scoresEl.innerHTML = sorted.map(p => `
             <div class="final-score-row ${p === winner ? 'winner' : ''}">
                 <span class="final-score-name">${this.escapeHtml(p.name)}</span>
-                <span class="final-score-count">${p.score} kort \u00B7 \u25CF${p.tokens}</span>
+                <span class="final-score-count">${p.score} kort \u00B7 \u{1F536}${p.tokens}</span>
             </div>
         `).join('');
 
@@ -662,7 +666,7 @@ const Game = {
         el.innerHTML = this.players.map((p, i) => `
             <div class="score-chip ${i === this.currentPlayerIndex ? 'active' : ''}">
                 ${this.escapeHtml(p.name)}: ${p.score}
-                <span class="token-count"><span class="token-icon">\u25CF</span>${p.tokens}</span>
+                <span class="token-count"><span class="token-icon">\u{1F536}</span>${p.tokens}</span>
             </div>
         `).join('');
     },
@@ -672,17 +676,13 @@ const Game = {
         el.innerHTML = `<strong>${this.escapeHtml(this.currentPlayer.name)}</strong> sin tur`;
     },
 
-    renderTimeline() {
-        const el = document.getElementById('timeline');
-        const player = this.currentPlayer;
+    // Shared timeline renderer used by both normal and challenger flows
+    _renderTimelineHTML(player, showDropZones, dropClickFn) {
         const timeline = player.timeline;
-
         let html = '';
 
-        const showDropZones = this.isWaitingForPlacement && this.hasPlayedSong;
-
         if (showDropZones) {
-            html += this.renderDropZone(0, timeline.length === 0 ? 'Plasser her' : 'Eldst');
+            html += `<div class="drop-zone" onclick="${dropClickFn}(0)"><span>${timeline.length === 0 ? 'Plasser her' : 'Eldst'}</span></div>`;
         }
 
         for (let i = 0; i < timeline.length; i++) {
@@ -699,27 +699,28 @@ const Game = {
 
             if (showDropZones) {
                 const label = i === timeline.length - 1 ? 'Nyest' : '';
-                html += this.renderDropZone(i + 1, label);
+                html += `<div class="drop-zone" onclick="${dropClickFn}(${i + 1})"><span>${label || 'Plasser her'}</span></div>`;
             }
         }
 
-        if (timeline.length === 0 && !this.isWaitingForPlacement) {
+        if (timeline.length === 0 && !showDropZones) {
             html = '<p style="text-align:center;color:var(--text-dim);padding:20px;">Tidslinjen er tom</p>';
         }
 
-        el.innerHTML = html;
-        el.classList.toggle('timeline-empty', timeline.length === 0 && !this.isWaitingForPlacement);
-
-        document.getElementById('timeline-title').textContent =
-            `${this.escapeHtml(this.currentPlayer.name)}s tidslinje (${timeline.length} kort)`;
+        return html;
     },
 
-    renderDropZone(index, label = '') {
-        return `
-            <div class="drop-zone" onclick="Game.onDropZoneClick(${index})">
-                <span>${label || 'Plasser her'}</span>
-            </div>
-        `;
+    renderTimeline() {
+        const el = document.getElementById('timeline');
+        const player = this.currentPlayer;
+        const showDropZones = this.isWaitingForPlacement && this.hasPlayedSong;
+
+        el.innerHTML = this._renderTimelineHTML(player, showDropZones, 'Game.onDropZoneClick');
+        el.classList.toggle('timeline-empty', player.timeline.length === 0 && !this.isWaitingForPlacement);
+
+        const titleEl = document.getElementById('timeline-title');
+        titleEl.textContent = `${this.escapeHtml(player.name)}s tidslinje (${player.timeline.length} kort)`;
+        titleEl.classList.remove('challenger');
     },
 
     onDropZoneClick(index) {
@@ -731,12 +732,10 @@ const Game = {
         this.showPlacementConfirmation(index);
     },
 
-    showPlacementConfirmation(index) {
+    // Shared placement confirmation dialog (used by both normal and challenger flow)
+    _showPlacementDialog(index, timeline, cancelFn, confirmFn) {
         const existing = document.querySelector('.confirm-placement');
         if (existing) existing.remove();
-
-        const player = this.currentPlayer;
-        const timeline = player.timeline;
 
         let positionText = '';
         if (timeline.length === 0) {
@@ -753,8 +752,8 @@ const Game = {
             <div class="confirm-placement slide-up">
                 <p>${positionText}</p>
                 <div class="confirm-buttons">
-                    <button class="btn btn-secondary" onclick="Game.cancelPlacement()">Avbryt</button>
-                    <button class="btn btn-success" onclick="Game.confirmPlacement()">Bekreft</button>
+                    <button class="btn btn-secondary" onclick="${cancelFn}">Avbryt</button>
+                    <button class="btn btn-success" onclick="${confirmFn}">Bekreft</button>
                 </div>
             </div>
         `;
@@ -767,6 +766,10 @@ const Game = {
                 dz.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         });
+    },
+
+    showPlacementConfirmation(index) {
+        this._showPlacementDialog(index, this.currentPlayer.timeline, 'Game.cancelPlacement()', 'Game.confirmPlacement()');
     },
 
     cancelPlacement() {
@@ -805,10 +808,9 @@ const Game = {
     showPreReveal() {
         this.titleArtistClaimed = false;
 
-        const overlay = document.getElementById('song-reveal-overlay');
         document.getElementById('pre-reveal').style.display = '';
         document.getElementById('reveal-result').style.display = 'none';
-        overlay.classList.add('active');
+        this._showOverlay('song-reveal-overlay');
 
         // Update claim button state
         const claimBtn = document.getElementById('btn-claim-title');
@@ -820,7 +822,7 @@ const Game = {
                 claimBtn.textContent = '\uD83C\uDFA4 Maks tokens (' + this.MAX_TOKENS + ')';
             } else {
                 claimBtn.disabled = false;
-                claimBtn.textContent = '\uD83C\uDFA4 Jeg vet tittel og artist (+1 \u25CF)';
+                claimBtn.textContent = '\uD83C\uDFA4 Jeg vet tittel og artist (+1 \u{1F536})';
             }
         }
 
@@ -876,9 +878,10 @@ const Game = {
         if (otherPlayers.length === 1) {
             // Only one possible challenger — skip selection, go straight to pass phone
             const challenger = otherPlayers[0];
+            if (challenger.player.tokens < 1) return; // Guard against race with GM
             cp.challengerIndex = challenger.index;
             // Deduct token from challenger
-            challenger.player.tokens -= 1;
+            challenger.player.tokens = Math.max(0, challenger.player.tokens - 1);
             this.saveState();
             this.renderScores();
 
@@ -887,39 +890,40 @@ const Game = {
                 <div class="pass-phone-icon">&#128241;</div>
                 <h2>Gi telefonen til</h2>
                 <p class="pass-phone-name">${challengerName}</p>
-                <p class="challenge-text">Du skal plassere sangen p\u00e5 din egen tidslinje. (1 \u25CF brukt)</p>
+                <p class="challenge-text">Du skal plassere sangen p\u00e5 din egen tidslinje. (1 \u{1F536} brukt)</p>
                 <button class="btn btn-primary btn-large" onclick="Game.showChallengerTimeline()">Jeg er klar!</button>
             `;
-            overlay.classList.add('active');
+            this._showOverlay('challenge-overlay');
             return;
         }
 
         // Multiple possible challengers — show selection list
         let playerButtons = '';
         otherPlayers.forEach(({ player, index }) => {
-            playerButtons += `<button class="challenge-player-btn" onclick="Game.selectChallenger(${index})">${this.escapeHtml(player.name)} (\u25CF${player.tokens})</button>`;
+            playerButtons += `<button class="challenge-player-btn" onclick="Game.selectChallenger(${index})">${this.escapeHtml(player.name)} (\u{1F536}${player.tokens})</button>`;
         });
 
         content.innerHTML = `
             <h2>Hvem utfordrer?</h2>
-            <p class="challenge-text">Koster 1 \u25CF \u00e5 utfordre:</p>
+            <p class="challenge-text">Koster 1 \u{1F536} \u00e5 utfordre:</p>
             <div class="challenge-player-list">${playerButtons}</div>
             <button class="btn btn-ghost" onclick="Game.cancelChallenge()">Avbryt</button>
         `;
-        overlay.classList.add('active');
+        this._showOverlay('challenge-overlay');
     },
 
     // Cancel challenge — close challenge overlay, stay on pre-reveal
     cancelChallenge() {
-        document.getElementById('challenge-overlay').classList.remove('active');
+        this._hideOverlay('challenge-overlay');
         this.challengePhase.challengerIndex = null;
         this.saveState();
     },
 
     selectChallenger(playerIndex) {
+        if (this.players[playerIndex].tokens < 1) return; // Guard against race with GM
         this.challengePhase.challengerIndex = playerIndex;
         // Deduct token from challenger
-        this.players[playerIndex].tokens -= 1;
+        this.players[playerIndex].tokens = Math.max(0, this.players[playerIndex].tokens - 1);
         this.saveState();
         this.renderScores();
 
@@ -931,15 +935,15 @@ const Game = {
             <div class="pass-phone-icon">&#128241;</div>
             <h2>Gi telefonen til</h2>
             <p class="pass-phone-name">${challengerName}</p>
-            <p class="challenge-text">Du skal plassere sangen p\u00e5 din egen tidslinje. (1 \u25CF brukt)</p>
+            <p class="challenge-text">Du skal plassere sangen p\u00e5 din egen tidslinje. (1 \u{1F536} brukt)</p>
             <button class="btn btn-primary btn-large" onclick="Game.showChallengerTimeline()">Jeg er klar!</button>
         `;
     },
 
     showChallengerTimeline() {
         // Close BOTH overlays (challenge + reveal)
-        document.getElementById('challenge-overlay').classList.remove('active');
-        document.getElementById('song-reveal-overlay').classList.remove('active');
+        this._hideOverlay('challenge-overlay');
+        this._hideOverlay('song-reveal-overlay');
 
         // Set up challenger placement mode
         this._challengerMode = true;
@@ -960,40 +964,13 @@ const Game = {
     renderChallengerTimeline() {
         const el = document.getElementById('timeline');
         const player = this.players[this.challengePhase.challengerIndex];
-        const timeline = player.timeline;
 
-        let html = '';
-        html += this._renderChallengerDropZone(0, timeline.length === 0 ? 'Plasser her' : 'Eldst');
-
-        for (let i = 0; i < timeline.length; i++) {
-            const card = timeline[i];
-            html += `
-                <div class="timeline-card">
-                    <span class="card-year">${card.year}</span>
-                    <div class="card-info">
-                        <div class="card-title">${this.escapeHtml(card.title)}</div>
-                        <div class="card-artist">${this.escapeHtml(card.artist)}</div>
-                    </div>
-                </div>
-            `;
-            const label = i === timeline.length - 1 ? 'Nyest' : '';
-            html += this._renderChallengerDropZone(i + 1, label);
-        }
-
-        el.innerHTML = html;
+        el.innerHTML = this._renderTimelineHTML(player, true, 'Game.onChallengerDropZoneClick');
         el.classList.remove('timeline-empty');
 
         const titleEl = document.getElementById('timeline-title');
-        titleEl.textContent = `${this.escapeHtml(player.name)}s tidslinje (${timeline.length} kort)`;
+        titleEl.textContent = `${this.escapeHtml(player.name)}s tidslinje (${player.timeline.length} kort)`;
         titleEl.classList.add('challenger');
-    },
-
-    _renderChallengerDropZone(index, label = '') {
-        return `
-            <div class="drop-zone" onclick="Game.onChallengerDropZoneClick(${index})">
-                <span>${label || 'Plasser her'}</span>
-            </div>
-        `;
     },
 
     onChallengerDropZoneClick(index) {
@@ -1006,41 +983,8 @@ const Game = {
     },
 
     showChallengerPlacementConfirmation(index) {
-        const existing = document.querySelector('.confirm-placement');
-        if (existing) existing.remove();
-
         const player = this.players[this.challengePhase.challengerIndex];
-        const timeline = player.timeline;
-
-        let positionText = '';
-        if (timeline.length === 0) {
-            positionText = 'Start tidslinjen med denne sangen?';
-        } else if (index === 0) {
-            positionText = `Plassere f\u00f8r ${timeline[0].year}?`;
-        } else if (index === timeline.length) {
-            positionText = `Plassere etter ${timeline[timeline.length - 1].year}?`;
-        } else {
-            positionText = `Plassere mellom ${timeline[index - 1].year} og ${timeline[index].year}?`;
-        }
-
-        const html = `
-            <div class="confirm-placement slide-up">
-                <p>${positionText}</p>
-                <div class="confirm-buttons">
-                    <button class="btn btn-secondary" onclick="Game.cancelChallengerPlacement()">Avbryt</button>
-                    <button class="btn btn-success" onclick="Game.confirmChallengerPlacement()">Bekreft</button>
-                </div>
-            </div>
-        `;
-
-        document.getElementById('screen-game').insertAdjacentHTML('beforeend', html);
-
-        document.querySelectorAll('.drop-zone').forEach((dz, i) => {
-            dz.classList.toggle('highlight', i === index);
-            if (i === index) {
-                dz.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-        });
+        this._showPlacementDialog(index, player.timeline, 'Game.cancelChallengerPlacement()', 'Game.confirmChallengerPlacement()');
     },
 
     cancelChallengerPlacement() {
@@ -1170,7 +1114,9 @@ const Game = {
             this.currentPlayerIndex = state.currentPlayerIndex;
             this.cardsToWin = state.cardsToWin;
             this.usedSongs = new Set(Array.isArray(state.usedSongs) ? state.usedSongs : []);
-            this.deck = shuffleArray(SONGS_DATABASE.filter(s => !this.usedSongs.has(this._songKey(s))));
+            // Snapshot the database on restore to prevent mid-game corruption
+            this._gameDatabase = [...SONGS_DATABASE];
+            this.deck = shuffleArray(this._gameDatabase.filter(s => !this.usedSongs.has(this._songKey(s))));
             this.currentSong = state.currentSong || null;
             this.hasPlayedSong = !!state.hasPlayedSong;
             this.isWaitingForPlacement = !!state.isWaitingForPlacement;
@@ -1236,7 +1182,7 @@ const Game = {
                         <button class="btn-icon btn-sm" onclick="Game.gmAdjustScore(${i}, 1)">+</button>
                         <span class="gm-player-tokens-inline">
                             <button class="btn-icon btn-xs" onclick="Game.gmAdjustTokens(${i}, -1)">\u2212</button>
-                            <span>\u25CF${player.tokens}</span>
+                            <span>\u{1F536}${player.tokens}</span>
                             <button class="btn-icon btn-xs" onclick="Game.gmAdjustTokens(${i}, 1)">+</button>
                         </span>
                         ${this.players.length > 2 ? `<button class="btn-icon btn-sm gm-btn-remove" onclick="Game.gmRemovePlayer(${i})">&times;</button>` : ''}
@@ -1387,7 +1333,7 @@ const Game = {
             if (cp.challengerIndex === playerIndex || cp.originalPlayerIndex === playerIndex) {
                 this.challengePhase = null;
                 this._challengerMode = false;
-                document.getElementById('challenge-overlay').classList.remove('active');
+                this._hideOverlay('challenge-overlay');
             } else {
                 // Adjust indices in challengePhase
                 if (cp.challengerIndex !== null && playerIndex < cp.challengerIndex) {
@@ -1438,6 +1384,22 @@ const Game = {
 
     escapeHtml(str) {
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    },
+
+    // Scroll-lock: prevent background scrolling when overlays are open
+    _updateScrollLock() {
+        const anyOverlay = document.querySelector('.overlay.active');
+        document.body.classList.toggle('overlay-active', !!anyOverlay);
+    },
+
+    _showOverlay(id) {
+        document.getElementById(id).classList.add('active');
+        this._updateScrollLock();
+    },
+
+    _hideOverlay(id) {
+        document.getElementById(id).classList.remove('active');
+        this._updateScrollLock();
     },
 };
 

@@ -660,7 +660,6 @@ h3 {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 0;
     width: 100%;
 }
 
@@ -788,6 +787,13 @@ h3 {
 
 .overlay.active {
     display: flex;
+}
+
+/* Prevent background scroll when overlay is open */
+body.overlay-active {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
 }
 
 .overlay-content {
@@ -996,8 +1002,7 @@ h3 {
 }
 
 .token-icon {
-    color: #f5c842;
-    font-size: 0.85em;
+    font-size: 0.75em;
     margin-right: 1px;
 }
 

@@ -647,6 +647,8 @@ const App = {
         } else {
             SONGS_DATABASE = ALL_SONGS.filter(s => this._selectedGenres.has(s.genre));
         }
+        // Clear any in-progress game since song database changed
+        Game.clearState();
         this.updateSongBadge();
     },
 
@@ -657,6 +659,7 @@ const App = {
         document.querySelectorAll('.overlay').forEach(o => o.classList.remove('active'));
         document.getElementById('gm-panel')?.classList.remove('active');
         document.getElementById('gm-backdrop')?.classList.remove('active');
+        document.body.classList.remove('overlay-active');
         const confirmEl = document.querySelector('.confirm-placement');
         if (confirmEl) confirmEl.remove();
 
