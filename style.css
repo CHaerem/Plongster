@@ -21,6 +21,7 @@
     --blue: #3b82f6;
     --radius: 12px;
     --radius-sm: 8px;
+    --border: rgba(255,255,255,0.1);
     --safe-bottom: env(safe-area-inset-bottom, 16px);
 }
 
@@ -611,6 +612,10 @@ h3 {
     bottom: 0;
     width: 2px;
     background: rgba(255,255,255,0.1);
+}
+
+.timeline.timeline-empty::before {
+    display: none;
 }
 
 .timeline-card {

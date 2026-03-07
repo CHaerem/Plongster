@@ -8,6 +8,9 @@ const App = {
     _anonTokenExpiry: 0,
 
     init() {
+        // Sync winCount display from JS default
+        document.getElementById('win-count').textContent = this.winCount;
+
         // Restore playlist URL into input
         const savedUrl = localStorage.getItem('hitster-playlist-url');
         const playlistInput = document.getElementById('playlist-url');
@@ -36,6 +39,20 @@ const App = {
         } else {
             this.updateSongBadge();
         }
+
+        // Enter key support on setup screen: move to next input or start game
+        document.getElementById('player-list').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const inputs = document.querySelectorAll('#player-list .player-name-input');
+                const idx = Array.from(inputs).indexOf(e.target);
+                if (idx < inputs.length - 1) {
+                    inputs[idx + 1].focus();
+                } else {
+                    this.startGame();
+                }
+            }
+        });
 
         // Restore game state if page was refreshed mid-game
         if (Game.restoreState()) {
@@ -480,9 +497,11 @@ const App = {
 
     _extractPlaylistId(input) {
         if (!input) return null;
-        const urlMatch = input.match(/playlist[/:]([a-zA-Z0-9]+)/);
+        // Match Spotify URLs: open.spotify.com/playlist/ID or spotify:playlist:ID
+        const urlMatch = input.match(/(?:spotify\.com\/playlist\/|spotify:playlist:)([a-zA-Z0-9]+)/);
         if (urlMatch) return urlMatch[1];
-        if (/^[a-zA-Z0-9]{15,}$/.test(input.trim())) return input.trim();
+        // Accept bare playlist IDs (22 chars typical)
+        if (/^[a-zA-Z0-9]{15,25}$/.test(input.trim())) return input.trim();
         return null;
     },
 
@@ -511,6 +530,13 @@ const App = {
     // --- Screen Management ---
 
     showScreen(screenId) {
+        // Clean up any active overlays/panels from previous screen
+        document.querySelectorAll('.overlay').forEach(o => o.classList.remove('active'));
+        document.getElementById('gm-panel')?.classList.remove('active');
+        document.getElementById('gm-backdrop')?.classList.remove('active');
+        const confirmEl = document.querySelector('.confirm-placement');
+        if (confirmEl) confirmEl.remove();
+
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(screenId).classList.add('active');
     },
@@ -525,6 +551,12 @@ const App = {
 
         if (SONGS_DATABASE.length === 0) {
             alert('Ingen sanger lastet! Bruk standard sangliste eller last inn en spilleliste.');
+            return;
+        }
+
+        const minSongs = names.length + this.winCount;
+        if (SONGS_DATABASE.length < minSongs) {
+            alert(`Trenger minst ${minSongs} sanger for ${names.length} spillere med ${this.winCount} kort. Har bare ${SONGS_DATABASE.length}.`);
             return;
         }
 
@@ -551,8 +583,8 @@ const App = {
         const row = document.createElement('div');
         row.className = 'player-input-row fade-in';
         row.innerHTML = `
-            <input type="text" class="player-name-input" placeholder="Spiller ${count + 1}" maxlength="15">
-            <button class="btn-icon btn-remove-player" onclick="App.removePlayer(this)">&times;</button>
+            <input type="text" class="player-name-input" placeholder="Spiller ${count + 1}" maxlength="15" autocapitalize="words" spellcheck="false" autocomplete="off">
+            <button class="btn-icon btn-remove-player" onclick="App.removePlayer(this)" aria-label="Fjern spiller">&times;</button>
         `;
         list.appendChild(row);
         this.updateRemoveButtons();

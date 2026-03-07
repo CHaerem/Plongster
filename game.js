@@ -23,6 +23,7 @@ const Game = {
         this.isWaitingForPlacement = false;
         this.selectedDropIndex = null;
         this._isPlaying = false;
+        this._apiRetryCount = 0;
 
         // Each player starts with 1 card in their timeline
         this.players = playerNames.map(name => {
@@ -171,8 +172,16 @@ const Game = {
                     this.renderTimeline();
                 }
             } else if (e.data.isPaused) {
+                // Detect track end (position resets to 0 while we thought we were playing)
+                const wasPlaying = this._isPlaying;
                 this._isPlaying = false;
-                this._updatePlaybackUI('paused');
+                if (wasPlaying && e.data.position === 0) {
+                    this._updatePlaybackUI('paused');
+                    const text = document.querySelector('.listening-text');
+                    if (text) text.textContent = 'Sangen er ferdig — trykk for å spille igjen';
+                } else {
+                    this._updatePlaybackUI('paused');
+                }
             }
         });
     },
@@ -346,6 +355,22 @@ const Game = {
         document.querySelector('.listening-text').textContent = 'Starter avspilling...';
     },
 
+    // Skip current song (e.g., if it won't play or is region-restricted)
+    skipSong() {
+        this.pausePlayback();
+        this.currentSong = this.drawSong();
+        this.hasPlayedSong = false;
+        this.isWaitingForPlacement = true;
+        this.selectedDropIndex = null;
+        this.saveState();
+        this.renderTimeline();
+        if (this.currentSong && this._isValidSpotifyId(this.currentSong.spotifyId)) {
+            this.loadSong(this.currentSong.spotifyId);
+        } else {
+            this._updatePlaybackUI('error');
+        }
+    },
+
     // Replay song from beginning
     replayFromStart() {
         if (this.currentSong && this._isValidSpotifyId(this.currentSong.spotifyId)) {
@@ -401,6 +426,7 @@ const Game = {
     // Place song at index
     async placeSong(dropIndex) {
         if (!this.isWaitingForPlacement || !this.currentSong) return;
+        if (dropIndex < 0 || dropIndex > this.currentPlayer.timeline.length) return;
         this.isWaitingForPlacement = false;
         // Pause playback but keep controller alive for reuse next turn
         this.pausePlayback();
@@ -434,6 +460,11 @@ const Game = {
         name.textContent = this.currentSong.title;
         artist.textContent = this.currentSong.artist;
         year.textContent = this.currentSong.year;
+
+        // Haptic feedback on mobile
+        if ('vibrate' in navigator) {
+            navigator.vibrate(correct ? [50] : [100, 50, 100]);
+        }
 
         overlay.classList.add('active');
     },
@@ -536,6 +567,7 @@ const Game = {
         }
 
         el.innerHTML = html;
+        el.classList.toggle('timeline-empty', timeline.length === 0 && !this.isWaitingForPlacement);
 
         document.getElementById('timeline-title').textContent =
             `${this.escapeHtml(this.currentPlayer.name)}s tidslinje (${timeline.length} kort)`;
@@ -551,6 +583,9 @@ const Game = {
 
     onDropZoneClick(index) {
         if (!this.isWaitingForPlacement) return;
+        if (this._dropDebounce) return;
+        this._dropDebounce = true;
+        setTimeout(() => { this._dropDebounce = false; }, 300);
         this.selectedDropIndex = index;
         this.showPlacementConfirmation(index);
     },
@@ -587,6 +622,9 @@ const Game = {
 
         document.querySelectorAll('.drop-zone').forEach((dz, i) => {
             dz.classList.toggle('highlight', i === index);
+            if (i === index) {
+                dz.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         });
     },
 
@@ -600,8 +638,10 @@ const Game = {
     confirmPlacement() {
         const existing = document.querySelector('.confirm-placement');
         if (existing) existing.remove();
-        if (this.selectedDropIndex !== null) {
-            this.placeSong(this.selectedDropIndex);
+        if (this.selectedDropIndex !== null && this.isWaitingForPlacement) {
+            const idx = this.selectedDropIndex;
+            this.selectedDropIndex = null; // Clear immediately to prevent double-fire
+            this.placeSong(idx);
         }
     },
 
@@ -642,6 +682,8 @@ const Game = {
             )) return false;
 
             this.players = state.players;
+            // Recalculate scores from timeline length to prevent desync
+            this.players.forEach(p => { p.score = p.timeline.length; });
             this.currentPlayerIndex = state.currentPlayerIndex;
             this.cardsToWin = state.cardsToWin;
             this.usedSongs = new Set(Array.isArray(state.usedSongs) ? state.usedSongs : []);
@@ -720,6 +762,10 @@ const Game = {
         html += '<div id="gm-timeline-cards"></div>';
         html += '</div>';
 
+        html += `<div class="gm-section"><h4>Info</h4>
+            <p class="gm-empty">${this.deck.length} sanger igjen i bunken</p>
+        </div>`;
+
         html += `<div class="gm-section">
             <button class="btn btn-danger gm-btn-restart" onclick="Game.gmRestart()">Start på nytt</button>
         </div>`;
@@ -797,6 +843,10 @@ const Game = {
         const input = document.getElementById('gm-new-player-name');
         const name = input.value.trim();
         if (!name || this.players.length >= 10) return;
+        if (this.players.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+            alert('En spiller med dette navnet finnes allerede.');
+            return;
+        }
 
         const startCard = this.drawSong();
         this.players.push({
@@ -845,9 +895,24 @@ const Game = {
     },
 
     escapeHtml(str) {
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     },
 };
+
+// Keyboard shortcuts (M9: Escape to close overlays/panels)
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        // Close game master panel if open
+        if (document.getElementById('gm-panel').classList.contains('active')) {
+            Game.closeMenu();
+            return;
+        }
+        // Cancel placement confirmation if visible
+        if (Game.selectedDropIndex !== null) {
+            Game.cancelPlacement();
+        }
+    }
+});
 
 // Spotify IFrame API callback
 window.onSpotifyIframeApiReady = (IFrameAPI) => {
