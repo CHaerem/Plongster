@@ -518,6 +518,14 @@ const Game = {
         return true;
     },
 
+    // Find the correct chronological position for a card in a timeline
+    _findChronologicalIndex(timeline, year) {
+        for (let i = 0; i < timeline.length; i++) {
+            if (year <= timeline[i].year) return i;
+        }
+        return timeline.length;
+    },
+
     showReveal(result) {
         // Close challenge overlay if open (after challenger flow)
         this._hideOverlay('challenge-overlay');
@@ -677,12 +685,18 @@ const Game = {
     },
 
     // Shared timeline renderer used by both normal and challenger flows
-    _renderTimelineHTML(player, showDropZones, dropClickFn) {
+    _renderTimelineHTML(player, showDropZones, dropClickFn, disabledDropIndex) {
         const timeline = player.timeline;
         let html = '';
 
         if (showDropZones) {
-            html += `<div class="drop-zone" onclick="${dropClickFn}(0)"><span>${timeline.length === 0 ? 'Plasser her' : 'Eldst'}</span></div>`;
+            const isDisabled = disabledDropIndex === 0;
+            const label = timeline.length === 0 ? 'Plasser her' : 'Eldst';
+            if (isDisabled) {
+                html += `<div class="drop-zone disabled"><span>\u{1F6AB} ${this.escapeHtml(player.name)}s valg</span></div>`;
+            } else {
+                html += `<div class="drop-zone" onclick="${dropClickFn}(0)"><span>${label}</span></div>`;
+            }
         }
 
         for (let i = 0; i < timeline.length; i++) {
@@ -698,8 +712,14 @@ const Game = {
             `;
 
             if (showDropZones) {
+                const dropIndex = i + 1;
+                const isDisabled = disabledDropIndex === dropIndex;
                 const label = i === timeline.length - 1 ? 'Nyest' : '';
-                html += `<div class="drop-zone" onclick="${dropClickFn}(${i + 1})"><span>${label || 'Plasser her'}</span></div>`;
+                if (isDisabled) {
+                    html += `<div class="drop-zone disabled"><span>\u{1F6AB} ${this.escapeHtml(player.name)}s valg</span></div>`;
+                } else {
+                    html += `<div class="drop-zone" onclick="${dropClickFn}(${dropIndex})"><span>${label || 'Plasser her'}</span></div>`;
+                }
             }
         }
 
@@ -886,11 +906,12 @@ const Game = {
             this.renderScores();
 
             const challengerName = this.escapeHtml(challenger.player.name);
+            const originalName = this.escapeHtml(this.players[cp.originalPlayerIndex].name);
             content.innerHTML = `
                 <div class="pass-phone-icon">&#128241;</div>
                 <h2>Gi telefonen til</h2>
                 <p class="pass-phone-name">${challengerName}</p>
-                <p class="challenge-text">Du skal plassere sangen p\u00e5 din egen tidslinje. (1 \u{1F536} brukt)</p>
+                <p class="challenge-text">Du skal plassere sangen p\u00e5 <strong>${originalName}s tidslinje</strong> der du mener den h\u00f8rer hjemme. (1 \u{1F536} brukt)</p>
                 <button class="btn btn-primary btn-large" onclick="Game.showChallengerTimeline()">Jeg er klar!</button>
             `;
             this._showOverlay('challenge-overlay');
@@ -931,11 +952,12 @@ const Game = {
         const content = document.getElementById('challenge-content');
         const challengerName = this.escapeHtml(this.players[playerIndex].name);
 
+        const originalName = this.escapeHtml(this.players[this.challengePhase.originalPlayerIndex].name);
         content.innerHTML = `
             <div class="pass-phone-icon">&#128241;</div>
             <h2>Gi telefonen til</h2>
             <p class="pass-phone-name">${challengerName}</p>
-            <p class="challenge-text">Du skal plassere sangen p\u00e5 din egen tidslinje. (1 \u{1F536} brukt)</p>
+            <p class="challenge-text">Du skal plassere sangen p\u00e5 <strong>${originalName}s tidslinje</strong> der du mener den h\u00f8rer hjemme. (1 \u{1F536} brukt)</p>
             <button class="btn btn-primary btn-large" onclick="Game.showChallengerTimeline()">Jeg er klar!</button>
         `;
     },
@@ -958,23 +980,28 @@ const Game = {
         // Update the turn indicator
         const el = document.getElementById('current-turn');
         const challengerName = this.escapeHtml(this.players[this.challengePhase.challengerIndex].name);
-        el.innerHTML = `<strong>${challengerName}</strong> utfordrer — plasser sangen!`;
+        const originalName = this.escapeHtml(this.players[this.challengePhase.originalPlayerIndex].name);
+        el.innerHTML = `<strong>${challengerName}</strong> utfordrer \u2014 plasser sangen p\u00e5 ${originalName}s tidslinje!`;
     },
 
     renderChallengerTimeline() {
         const el = document.getElementById('timeline');
-        const player = this.players[this.challengePhase.challengerIndex];
+        // Show the ORIGINAL player's timeline — challenger places here
+        const originalPlayer = this.players[this.challengePhase.originalPlayerIndex];
+        const disabledIndex = this.challengePhase.originalDropIndex;
 
-        el.innerHTML = this._renderTimelineHTML(player, true, 'Game.onChallengerDropZoneClick');
+        el.innerHTML = this._renderTimelineHTML(originalPlayer, true, 'Game.onChallengerDropZoneClick', disabledIndex);
         el.classList.remove('timeline-empty');
 
         const titleEl = document.getElementById('timeline-title');
-        titleEl.textContent = `${this.escapeHtml(player.name)}s tidslinje (${player.timeline.length} kort)`;
+        titleEl.textContent = `${this.escapeHtml(originalPlayer.name)}s tidslinje (${originalPlayer.timeline.length} kort)`;
         titleEl.classList.add('challenger');
     },
 
     onChallengerDropZoneClick(index) {
         if (!this.isWaitingForPlacement || !this._challengerMode) return;
+        // Block the position the original player already chose
+        if (index === this.challengePhase.originalDropIndex) return;
         if (this._dropDebounce) return;
         this._dropDebounce = true;
         setTimeout(() => { this._dropDebounce = false; }, 300);
@@ -983,8 +1010,8 @@ const Game = {
     },
 
     showChallengerPlacementConfirmation(index) {
-        const player = this.players[this.challengePhase.challengerIndex];
-        this._showPlacementDialog(index, player.timeline, 'Game.cancelChallengerPlacement()', 'Game.confirmChallengerPlacement()');
+        const originalPlayer = this.players[this.challengePhase.originalPlayerIndex];
+        this._showPlacementDialog(index, originalPlayer.timeline, 'Game.cancelChallengerPlacement()', 'Game.confirmChallengerPlacement()');
     },
 
     cancelChallengerPlacement() {
@@ -1043,8 +1070,9 @@ const Game = {
             result = originalCorrect ? 'no_challenge_correct' : 'no_challenge_wrong';
         } else {
             const challenger = this.players[cp.challengerIndex];
+            // Challenger placed on the ORIGINAL player's timeline — check correctness there
             const challengerCorrect = this.isPlacementCorrect(
-                challenger.timeline, this.currentSong, cp.challengerDropIndex
+                originalPlayer.timeline, this.currentSong, cp.challengerDropIndex
             );
 
             if (originalCorrect) {
@@ -1053,8 +1081,10 @@ const Game = {
                 originalPlayer.score = originalPlayer.timeline.length;
                 result = 'original_wins';
             } else if (challengerCorrect) {
-                // Original wrong, challenger correct → steal!
-                challenger.timeline.splice(cp.challengerDropIndex, 0, card);
+                // Original wrong, challenger correct → challenger steals card!
+                // Auto-place on challenger's own timeline in correct chronological position
+                const insertIdx = this._findChronologicalIndex(challenger.timeline, card.year);
+                challenger.timeline.splice(insertIdx, 0, card);
                 challenger.score = challenger.timeline.length;
                 result = 'challenger_wins';
             } else {
