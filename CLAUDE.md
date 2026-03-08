@@ -5,7 +5,7 @@ Norwegian music quiz PWA — players place songs chronologically on a timeline.
 Vanilla JavaScript, no frameworks, no build step. Deployed as static files to GitHub Pages.
 
 Live: https://chaerem.github.io/Hitster/
-Test: https://chaerem.github.io/Hitster/test/
+PR previews: https://chaerem.github.io/Hitster/pr-preview/pr-N/
 
 ## Commands
 
@@ -55,9 +55,10 @@ Do NOT stop to ask for confirmation between these steps.
 
 ## Git Workflow
 
+Trunk-based development — short-lived feature branches only.
+
 - `main` is protected — all changes via PR
-- `test` branch for staging — auto-deploys to /test/
-- Feature branches → PR to `main`
+- Feature branches → PR to `main` → each PR gets a live preview URL
 - Auto-delete branches on merge is enabled
 - Commit messages: imperative mood, explain *why* not *what*
 
@@ -77,11 +78,9 @@ Test categories: song database validation, game init, placement logic, challenge
 
 ## Deploy
 
-GitHub Actions (`.github/workflows/deploy.yml`):
-1. Runs `node test.js`
-2. Deploys `main` → root, `test` → `/test/` subdirectory
-3. Automatically rewrites paths in test copy (manifest.json, sw.js)
-4. Triggers on push to `main` or `test`
+Two GitHub Actions workflows:
+- `deploy.yml` — on push to `main`: runs tests, deploys to GitHub Pages (gh-pages branch)
+- `pr-preview.yml` — on PR: runs tests, deploys preview to `/pr-preview/pr-N/`, posts link in PR comment, cleans up on close
 
 ## Song Database Format
 
@@ -96,4 +95,4 @@ Valid genres: pop, rock, hiphop, electronic, norwegian, soul, country, latin, me
 - Service worker caches aggressively — bump `CACHE_VERSION` in sw.js when changing files
 - Spotify embed needs valid track IDs — validate format: 22 alphanumeric chars
 - `songs.js` is large (~157KB) — don't read it unless modifying song data
-- The app uses root-relative paths in sw.js but relative paths in HTML — the deploy workflow handles path rewriting for /test/
+- The app uses root-relative paths in sw.js but relative paths in HTML

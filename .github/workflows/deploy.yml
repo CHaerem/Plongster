@@ -2,13 +2,11 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["main", "test"]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: "pages"
@@ -26,58 +24,18 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Run integration and regression tests
+      - name: Run tests
         run: node test.js
 
   deploy:
     needs: test
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout main
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: main
-          path: staging
-
-      - name: Checkout test branch into subdirectory
-        uses: actions/checkout@v4
-        with:
-          ref: test
-          path: staging/test
-
-      - name: Fix paths in test copy
-        run: |
-          cd staging/test
-
-          # Remove nested .git so it doesn't interfere
-          rm -rf .git
-
-          # Fix manifest.json paths
-          sed -i 's|"start_url": "/Hitster/"|"start_url": "/Hitster/test/"|' manifest.json
-          sed -i 's|"scope": "/Hitster/"|"scope": "/Hitster/test/"|' manifest.json
-
-          # Fix service worker: rewrite all '/path' entries in APP_SHELL to '/Hitster/test/path'
-          sed -i "s|'\/\([^']*\)'|'/Hitster/test/\1'|g" sw.js
-          # Fix the root entry (trailing double slash)
-          sed -i "s|'/Hitster/test//'|'/Hitster/test/'|g" sw.js
-
-          # Fix offline fallback path in sw.js
-          sed -i "s|caches.match('/index.html')|caches.match('/Hitster/test/index.html')|" sw.js
-
-      - name: Remove .git from staging
-        run: rm -rf staging/.git
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: staging
 
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: .
+          clean-exclude: pr-preview
