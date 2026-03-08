@@ -1696,31 +1696,40 @@ const Game = {
         document.getElementById('gm-song-search').focus();
     },
 
+    _searchResults: [],
+
     gmSearchSong(query, playerIndex) {
         const resultsEl = document.getElementById('gm-search-results');
         if (!query || query.length < 2) {
             resultsEl.innerHTML = '';
+            this._searchResults = [];
             return;
         }
 
         const q = query.toLowerCase();
         const db = this._gameDatabase || (typeof SONGS_DATABASE !== 'undefined' ? SONGS_DATABASE : []);
-        const matches = db.filter(s =>
+        this._searchResults = db.filter(s =>
             s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q)
         ).slice(0, 10);
 
-        if (matches.length === 0) {
+        if (this._searchResults.length === 0) {
             resultsEl.innerHTML = '<p class="gm-empty">Ingen treff</p>';
             return;
         }
 
-        resultsEl.innerHTML = matches.map((song, i) => `
-            <div class="gm-search-result" onclick="Game.gmAddSearchedCard(${playerIndex}, '${this.escapeHtml(song.title).replace(/'/g, "\\'")}', '${this.escapeHtml(song.artist).replace(/'/g, "\\'")}', ${song.year})">
+        resultsEl.innerHTML = this._searchResults.map((song, i) => `
+            <div class="gm-search-result" onclick="Game.gmAddSearchedCardByIndex(${playerIndex}, ${i})">
                 <span class="gm-search-year">${song.year}</span>
                 <span class="gm-search-title">${this.escapeHtml(song.title)}</span>
                 <span class="gm-search-artist">${this.escapeHtml(song.artist)}</span>
             </div>
         `).join('');
+    },
+
+    gmAddSearchedCardByIndex(playerIndex, songIndex) {
+        const song = this._searchResults[songIndex];
+        if (!song) return;
+        this.gmAddSearchedCard(playerIndex, song.title, song.artist, song.year);
     },
 
     gmAddSearchedCard(playerIndex, title, artist, year) {
