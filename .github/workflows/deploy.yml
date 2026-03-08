@@ -59,16 +59,10 @@ jobs:
           sed -i 's|"start_url": "/Hitster/"|"start_url": "/Hitster/test/"|' manifest.json
           sed -i 's|"scope": "/Hitster/"|"scope": "/Hitster/test/"|' manifest.json
 
-          # Fix service worker APP_SHELL paths
-          sed -i "s|'/'|'/Hitster/test/'|" sw.js
-          sed -i "s|'/index.html'|'/Hitster/test/index.html'|" sw.js
-          sed -i "s|'/style.css'|'/Hitster/test/style.css'|" sw.js
-          sed -i "s|'/app.js'|'/Hitster/test/app.js'|" sw.js
-          sed -i "s|'/game.js'|'/Hitster/test/game.js'|" sw.js
-          sed -i "s|'/songs.js'|'/Hitster/test/songs.js'|" sw.js
-          sed -i "s|'/manifest.json'|'/Hitster/test/manifest.json'|" sw.js
-          sed -i "s|'/icons/icon-192.png'|'/Hitster/test/icons/icon-192.png'|" sw.js
-          sed -i "s|'/icons/icon-512.png'|'/Hitster/test/icons/icon-512.png'|" sw.js
+          # Fix service worker: rewrite all '/path' entries in APP_SHELL to '/Hitster/test/path'
+          sed -i "s|'\/\([^']*\)'|'/Hitster/test/\1'|g" sw.js
+          # Fix the root entry (trailing double slash)
+          sed -i "s|'/Hitster/test//'|'/Hitster/test/'|g" sw.js
 
           # Fix offline fallback path in sw.js
           sed -i "s|caches.match('/index.html')|caches.match('/Hitster/test/index.html')|" sw.js
