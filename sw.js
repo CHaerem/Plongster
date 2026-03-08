@@ -1,7 +1,7 @@
 // Hitster Service Worker
 // Caches app shell for offline/installable PWA experience
 
-const CACHE_VERSION = 'hitster-v28';
+const CACHE_VERSION = 'hitster-v29';
 
 // App shell — files needed for the app to work
 const APP_SHELL = [
@@ -13,7 +13,9 @@ const APP_SHELL = [
     '/songs.js',
     '/manifest.json',
     '/icons/icon-192.png',
+    '/icons/icon-192-maskable.png',
     '/icons/icon-512.png',
+    '/icons/icon-512-maskable.png',
 ];
 
 // External resources to cache (fonts)
