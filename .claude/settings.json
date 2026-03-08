@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node test.js)",
+      "Bash(node -c:*)",
+      "Bash(node -e:*)",
+      "Bash(node tools/generate-songs.js:*)",
+      "Bash(python3 -m http.server:*)",
+      "Bash(git:*)",
+      "Bash(gh:*)",
+      "WebFetch(domain:open.spotify.com)",
+      "WebFetch(domain:developer.spotify.com)",
+      "WebFetch(domain:chaerem.github.io)",
+      "WebFetch(domain:github.com)",
+      "mcp__Claude_Preview__*"
+    ],
+    "deny": []
+  }
+}
