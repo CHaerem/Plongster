@@ -5,7 +5,7 @@ Norwegian music quiz PWA — players place songs chronologically on a timeline.
 Vanilla JavaScript, no frameworks, no build step. Deployed as static files to GitHub Pages.
 
 Live: https://chaerem.github.io/Hitster/
-PR previews: https://chaerem.github.io/Hitster/pr-preview/pr-N/
+Test/preview: https://chaerem.github.io/Hitster/test/
 
 ## Commands
 
@@ -80,7 +80,7 @@ Test categories: song database validation, game init, placement logic, challenge
 
 Two GitHub Actions workflows:
 - `deploy.yml` — on push to `main`: runs tests, deploys to GitHub Pages (gh-pages branch)
-- `pr-preview.yml` — on PR: runs tests, deploys preview to `/pr-preview/pr-N/`, posts link in PR comment, cleans up on close
+- `pr-preview.yml` — on PR: runs tests, deploys preview to `/test/` (fixed URL, always shows latest PR)
 
 ## Song Database Format
 
