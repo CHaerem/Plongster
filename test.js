@@ -75,50 +75,50 @@ const ctx = vm.createContext(sandbox);
 
 // Load modules in dependency order, exposing symbols on the sandbox
 // 1. Songs data
-vm.runInContext('(function(){' + readModule('songs-data.js') + '\nthis.SONGS_DATA=SONGS_DATA;\n}).call(this);', ctx);
+vm.runInContext(`(function(){${readModule('songs-data.js')}\nthis.SONGS_DATA=SONGS_DATA;\n}).call(this);`, ctx);
 
 // 2. Utilities (escapeHtml, shuffleArray)
 vm.runInContext(
-    '(function(){' +
-        readModule('src/utils.js') +
-        '\nthis.escapeHtml=escapeHtml;this.shuffleArray=shuffleArray;this.isValidSong=isValidSong;this.extractYear=extractYear;\n}).call(this);',
+    `(function(){${readModule(
+        'src/utils.js',
+    )}\nthis.escapeHtml=escapeHtml;this.shuffleArray=shuffleArray;this.isValidSong=isValidSong;this.extractYear=extractYear;\n}).call(this);`,
     ctx,
 );
 
 // 3. Songs store (uses SONGS_DATA)
 vm.runInContext(
-    '(function(){' +
-        readModule('src/songs.js') +
-        '\ninitSongsSync(this.SONGS_DATA);\nthis.getSongs=getSongs;this.setSongs=setSongs;this.resetSongs=resetSongs;this.getAllSongs=getAllSongs;this.initSongsSync=initSongsSync;\n}).call(this);',
+    `(function(){${readModule(
+        'src/songs.js',
+    )}\ninitSongsSync(this.SONGS_DATA);\nthis.getSongs=getSongs;this.setSongs=setSongs;this.resetSongs=resetSongs;this.getAllSongs=getAllSongs;this.initSongsSync=initSongsSync;\n}).call(this);`,
     ctx,
 );
 
 // 4. Game modules — load and expose method objects
 vm.runInContext(
-    '(function(){' +
-        readModule('src/game/phases.js') +
-        '\nthis.Phase=Phase;this.isValidTransition=isValidTransition;this.transition=transition;\n}).call(this);',
+    `(function(){${readModule(
+        'src/game/phases.js',
+    )}\nthis.Phase=Phase;this.isValidTransition=isValidTransition;this.transition=transition;\n}).call(this);`,
     ctx,
 );
+vm.runInContext(`(function(){${readModule('src/game/state.js')}\nthis.stateMethods=stateMethods;\n}).call(this);`, ctx);
 vm.runInContext(
-    '(function(){' + readModule('src/game/state.js') + '\nthis.stateMethods=stateMethods;\n}).call(this);',
+    `(function(){${readModule('src/game/spotify.js')}\nthis.spotifyMethods=spotifyMethods;\n}).call(this);`,
     ctx,
 );
+vm.runInContext(`(function(){${readModule('src/game/ui.js')}\nthis.uiMethods=uiMethods;\n}).call(this);`, ctx);
 vm.runInContext(
-    '(function(){' + readModule('src/game/spotify.js') + '\nthis.spotifyMethods=spotifyMethods;\n}).call(this);',
+    `(function(){${readModule('src/game/engine.js')}\nthis.engineMethods=engineMethods;\n}).call(this);`,
     ctx,
 );
-vm.runInContext('(function(){' + readModule('src/game/ui.js') + '\nthis.uiMethods=uiMethods;\n}).call(this);', ctx);
+vm.runInContext(`(function(){${readModule('src/game/gm-panel.js')}\nthis.gmMethods=gmMethods;\n}).call(this);`, ctx);
+
+// 5. Spotify playlist utilities
 vm.runInContext(
-    '(function(){' + readModule('src/game/engine.js') + '\nthis.engineMethods=engineMethods;\n}).call(this);',
-    ctx,
-);
-vm.runInContext(
-    '(function(){' + readModule('src/game/gm-panel.js') + '\nthis.gmMethods=gmMethods;\n}).call(this);',
+    `(function(){${readModule('src/spotify/playlist.js')}\nthis.extractPlaylistId=extractPlaylistId;\n}).call(this);`,
     ctx,
 );
 
-// 5. Compose Game object (mirrors main.js)
+// 6. Compose Game object (mirrors main.js)
 vm.runInContext(
     `
     const Game = {
@@ -176,7 +176,7 @@ function assert(desc, cond) {
 }
 
 function section(name) {
-    console.log('\n\x1b[36m--- ' + name + ' ---\x1b[0m');
+    console.log(`\n\x1b[36m--- ${name} ---\x1b[0m`);
 }
 
 // Helper: find correct placement position for a song in a timeline
@@ -216,7 +216,7 @@ assert(
     DB.every(s => /^[a-zA-Z0-9]{20,24}$/.test(s.spotifyId)),
 );
 
-const keys = DB.map(s => s.title + '|' + s.artist);
+const keys = DB.map(s => `${s.title}|${s.artist}`);
 assert('No duplicate title+artist', keys.length === new Set(keys).size);
 
 const decades = {};
@@ -229,7 +229,7 @@ console.log(
     '  Decade distribution:',
     Object.entries(decades)
         .sort()
-        .map(([d, c]) => d + 's:' + c)
+        .map(([d, c]) => `${d}s:${c}`)
         .join(', '),
 );
 
@@ -303,7 +303,7 @@ assert('isWaitingForPlacement is false at start', G.isWaitingForPlacement === fa
 
 // Init with max players (10)
 section('Game Init - Max Players');
-const tenNames = Array.from({ length: 10 }, (_, i) => 'Player' + (i + 1));
+const tenNames = Array.from({ length: 10 }, (_, i) => `Player${i + 1}`);
 G.init(tenNames, 5);
 assert('10 players initialized', G.players.length === 10);
 assert(
@@ -349,7 +349,7 @@ let noDupes = true;
 for (let i = 0; i < 50; i++) {
     const song = G.drawSong();
     if (!song) break;
-    const key = song.title.toLowerCase() + '-' + song.artist.toLowerCase();
+    const key = `${song.title.toLowerCase()}-${song.artist.toLowerCase()}`;
     if (drawn.has(key)) {
         noDupes = false;
         break;
@@ -1160,12 +1160,12 @@ assert('TFlow: Alice has 3 tokens after claim', G.players[0].tokens === 3);
 
 // ==================== MULTI-PLAYER ROTATION (10 players) ====================
 section('Multi-Player Rotation');
-const tenPlayers = Array.from({ length: 10 }, (_, i) => 'P' + (i + 1));
+const tenPlayers = Array.from({ length: 10 }, (_, i) => `P${i + 1}`);
 G.init(tenPlayers, 5);
 assert('10 players initialized', G.players.length === 10);
 for (let i = 0; i < 20; i++) {
     const expected = i % 10;
-    assert('Turn ' + i + ': player P' + (expected + 1), G.currentPlayerIndex === expected);
+    assert(`Turn ${i}: player P${expected + 1}`, G.currentPlayerIndex === expected);
     G.currentPlayerIndex = (G.currentPlayerIndex + 1) % G.players.length;
 }
 
@@ -1516,12 +1516,303 @@ G.init(['Alice', 'Bob'], 10);
 const coverTestCard = G.players[0].timeline[0];
 assert('Timeline card has coverUrl property', 'coverUrl' in coverTestCard);
 
+// ==================== PHASE TRANSITION TESTS ====================
+section('Phase Transitions - Valid');
+const ivt = sandbox.isValidTransition;
+
+// Valid transitions for each phase
+assert('IDLE → PASS_PHONE valid', ivt(Phase.IDLE, Phase.PASS_PHONE));
+assert('IDLE → GAME_OVER valid', ivt(Phase.IDLE, Phase.GAME_OVER));
+assert('PASS_PHONE → LISTENING valid', ivt(Phase.PASS_PHONE, Phase.LISTENING));
+assert('LISTENING → PLACING valid', ivt(Phase.LISTENING, Phase.PLACING));
+assert('PLACING → PLACEMENT_CONFIRM valid', ivt(Phase.PLACING, Phase.PLACEMENT_CONFIRM));
+assert('PLACING → PLACING valid (self)', ivt(Phase.PLACING, Phase.PLACING));
+assert('PLACEMENT_CONFIRM → PLACING valid', ivt(Phase.PLACEMENT_CONFIRM, Phase.PLACING));
+assert('PLACEMENT_CONFIRM → PRE_REVEAL valid', ivt(Phase.PLACEMENT_CONFIRM, Phase.PRE_REVEAL));
+assert('PRE_REVEAL → REVEAL valid', ivt(Phase.PRE_REVEAL, Phase.REVEAL));
+assert('PRE_REVEAL → CHALLENGER_PASS valid', ivt(Phase.PRE_REVEAL, Phase.CHALLENGER_PASS));
+assert('PRE_REVEAL → PRE_REVEAL valid (self)', ivt(Phase.PRE_REVEAL, Phase.PRE_REVEAL));
+assert('CHALLENGER_PASS → CHALLENGER_PLACING valid', ivt(Phase.CHALLENGER_PASS, Phase.CHALLENGER_PLACING));
+assert('CHALLENGER_PASS → PRE_REVEAL valid', ivt(Phase.CHALLENGER_PASS, Phase.PRE_REVEAL));
+assert('CHALLENGER_PLACING → CHALLENGER_CONFIRM valid', ivt(Phase.CHALLENGER_PLACING, Phase.CHALLENGER_CONFIRM));
+assert('CHALLENGER_PLACING → CHALLENGER_PLACING valid (self)', ivt(Phase.CHALLENGER_PLACING, Phase.CHALLENGER_PLACING));
+assert('CHALLENGER_PLACING → PRE_REVEAL valid', ivt(Phase.CHALLENGER_PLACING, Phase.PRE_REVEAL));
+assert('CHALLENGER_CONFIRM → PRE_REVEAL valid', ivt(Phase.CHALLENGER_CONFIRM, Phase.PRE_REVEAL));
+assert('CHALLENGER_CONFIRM → CHALLENGER_PLACING valid', ivt(Phase.CHALLENGER_CONFIRM, Phase.CHALLENGER_PLACING));
+assert('REVEAL → TITLE_CLAIM valid', ivt(Phase.REVEAL, Phase.TITLE_CLAIM));
+assert('REVEAL → PASS_PHONE valid', ivt(Phase.REVEAL, Phase.PASS_PHONE));
+assert('REVEAL → GAME_OVER valid', ivt(Phase.REVEAL, Phase.GAME_OVER));
+assert('TITLE_CLAIM → PASS_PHONE valid', ivt(Phase.TITLE_CLAIM, Phase.PASS_PHONE));
+assert('TITLE_CLAIM → GAME_OVER valid', ivt(Phase.TITLE_CLAIM, Phase.GAME_OVER));
+assert('GAME_OVER → IDLE valid', ivt(Phase.GAME_OVER, Phase.IDLE));
+
+section('Phase Transitions - Invalid');
+assert('IDLE → LISTENING invalid', !ivt(Phase.IDLE, Phase.LISTENING));
+assert('IDLE → PLACING invalid', !ivt(Phase.IDLE, Phase.PLACING));
+assert('IDLE → REVEAL invalid', !ivt(Phase.IDLE, Phase.REVEAL));
+assert('PASS_PHONE → PLACING invalid', !ivt(Phase.PASS_PHONE, Phase.PLACING));
+assert('LISTENING → PRE_REVEAL invalid', !ivt(Phase.LISTENING, Phase.PRE_REVEAL));
+assert('PLACING → REVEAL invalid', !ivt(Phase.PLACING, Phase.REVEAL));
+assert('REVEAL → IDLE invalid', !ivt(Phase.REVEAL, Phase.IDLE));
+assert('REVEAL → LISTENING invalid', !ivt(Phase.REVEAL, Phase.LISTENING));
+assert('GAME_OVER → PASS_PHONE invalid', !ivt(Phase.GAME_OVER, Phase.PASS_PHONE));
+
+section('Phase Transitions - transition() function');
+const trn = sandbox.transition;
+assert('transition returns target phase', trn(Phase.IDLE, Phase.PASS_PHONE) === Phase.PASS_PHONE);
+assert('transition returns target even if invalid', trn(Phase.IDLE, Phase.REVEAL) === Phase.REVEAL);
+assert('Unknown from phase returns target', trn('UNKNOWN', Phase.IDLE) === Phase.IDLE);
+
+// ==================== STATE VALIDATION EDGE CASES ====================
+section('State Validation Edge Cases');
+
+// Test via restoreState with crafted localStorage values
+function testRestore(label, stateObj, expected) {
+    delete storageBacking['plongster-game'];
+    if (stateObj !== null) {
+        storageBacking['plongster-game'] = JSON.stringify(stateObj);
+    }
+    const result = G.restoreState();
+    assert(label, result === expected);
+}
+
+testRestore('Restore: null state', null, false);
+testRestore('Restore: empty object', {}, false);
+testRestore('Restore: missing players array', { currentPlayerIndex: 0, cardsToWin: 5 }, false);
+testRestore('Restore: players not an array', { players: 'not-array', currentPlayerIndex: 0, cardsToWin: 5 }, false);
+testRestore(
+    'Restore: only 1 player',
+    {
+        players: [{ name: 'A', timeline: [], score: 0 }],
+        currentPlayerIndex: 0,
+        cardsToWin: 5,
+    },
+    false,
+);
+testRestore(
+    'Restore: currentPlayerIndex out of bounds',
+    {
+        stateVersion: 2,
+        gamePhase: 'PASS_PHONE',
+        players: [
+            { name: 'A', timeline: [{ year: 2000, title: 'X', artist: 'Y' }], score: 1, tokens: 3 },
+            { name: 'B', timeline: [{ year: 1990, title: 'Z', artist: 'W' }], score: 1, tokens: 3 },
+        ],
+        currentPlayerIndex: 5,
+        cardsToWin: 5,
+    },
+    false,
+);
+testRestore(
+    'Restore: negative currentPlayerIndex',
+    {
+        stateVersion: 2,
+        gamePhase: 'PASS_PHONE',
+        players: [
+            { name: 'A', timeline: [{ year: 2000, title: 'X', artist: 'Y' }], score: 1, tokens: 3 },
+            { name: 'B', timeline: [{ year: 1990, title: 'Z', artist: 'W' }], score: 1, tokens: 3 },
+        ],
+        currentPlayerIndex: -1,
+        cardsToWin: 5,
+    },
+    false,
+);
+testRestore(
+    'Restore: cardsToWin zero',
+    {
+        stateVersion: 2,
+        gamePhase: 'PASS_PHONE',
+        players: [
+            { name: 'A', timeline: [], score: 0, tokens: 3 },
+            { name: 'B', timeline: [], score: 0, tokens: 3 },
+        ],
+        currentPlayerIndex: 0,
+        cardsToWin: 0,
+    },
+    false,
+);
+testRestore(
+    'Restore: player with empty name',
+    {
+        stateVersion: 2,
+        gamePhase: 'PASS_PHONE',
+        players: [
+            { name: '', timeline: [], score: 0, tokens: 3 },
+            { name: 'B', timeline: [], score: 0, tokens: 3 },
+        ],
+        currentPlayerIndex: 0,
+        cardsToWin: 5,
+    },
+    false,
+);
+testRestore(
+    'Restore: player without timeline',
+    {
+        stateVersion: 2,
+        gamePhase: 'PASS_PHONE',
+        players: [
+            { name: 'A', score: 0, tokens: 3 },
+            { name: 'B', timeline: [], score: 0, tokens: 3 },
+        ],
+        currentPlayerIndex: 0,
+        cardsToWin: 5,
+    },
+    false,
+);
+testRestore(
+    'Restore: invalid gamePhase string',
+    {
+        stateVersion: 2,
+        gamePhase: 'INVALID_PHASE',
+        players: [
+            { name: 'A', timeline: [{ year: 2000, title: 'X', artist: 'Y' }], score: 1, tokens: 3 },
+            { name: 'B', timeline: [{ year: 1990, title: 'Z', artist: 'W' }], score: 1, tokens: 3 },
+        ],
+        currentPlayerIndex: 0,
+        cardsToWin: 5,
+    },
+    false,
+);
+testRestore(
+    'Restore: valid V2 state succeeds',
+    {
+        stateVersion: 2,
+        gamePhase: 'PASS_PHONE',
+        players: [
+            { name: 'A', timeline: [{ year: 2000, title: 'X', artist: 'Y' }], score: 1, tokens: 3 },
+            { name: 'B', timeline: [{ year: 1990, title: 'Z', artist: 'W' }], score: 1, tokens: 3 },
+        ],
+        currentPlayerIndex: 0,
+        cardsToWin: 5,
+    },
+    true,
+);
+delete storageBacking['plongster-game'];
+
+// ==================== STATE MIGRATION TESTS ====================
+section('State Migration - V1 to V2');
+
+function testMigration(label, v1State, check) {
+    delete storageBacking['plongster-game'];
+    storageBacking['plongster-game'] = JSON.stringify(v1State);
+    const result = G.restoreState();
+    check(result);
+    delete storageBacking['plongster-game'];
+}
+
+testMigration(
+    'V1 with currentSong and hasPlayedSong → PLACING',
+    {
+        players: [
+            { name: 'A', timeline: [{ year: 2000, title: 'X', artist: 'Y' }], score: 1, tokens: 3 },
+            { name: 'B', timeline: [{ year: 1990, title: 'Z', artist: 'W' }], score: 1, tokens: 3 },
+        ],
+        currentPlayerIndex: 0,
+        cardsToWin: 5,
+        currentSong: { title: 'T', artist: 'A', year: 2005, spotifyId: '12345678901234567890' },
+        hasPlayedSong: true,
+    },
+    result => {
+        assert('V1→V2: restores successfully', result === true);
+        assert('V1→V2: gamePhase is PLACING', G.gamePhase === Phase.PLACING);
+    },
+);
+
+testMigration(
+    'V1 with currentSong but not played → LISTENING',
+    {
+        players: [
+            { name: 'A', timeline: [{ year: 2000, title: 'X', artist: 'Y' }], score: 1, tokens: 3 },
+            { name: 'B', timeline: [{ year: 1990, title: 'Z', artist: 'W' }], score: 1, tokens: 3 },
+        ],
+        currentPlayerIndex: 0,
+        cardsToWin: 5,
+        currentSong: { title: 'T', artist: 'A', year: 2005, spotifyId: '12345678901234567890' },
+        hasPlayedSong: false,
+    },
+    result => {
+        assert('V1→V2: not played → LISTENING', result === true);
+        assert('V1→V2: gamePhase is LISTENING', G.gamePhase === Phase.LISTENING);
+    },
+);
+
+testMigration(
+    'V1 with challengePhase → PRE_REVEAL',
+    {
+        players: [
+            { name: 'A', timeline: [{ year: 2000, title: 'X', artist: 'Y' }], score: 1, tokens: 3 },
+            { name: 'B', timeline: [{ year: 1990, title: 'Z', artist: 'W' }], score: 1, tokens: 3 },
+        ],
+        currentPlayerIndex: 0,
+        cardsToWin: 5,
+        currentSong: { title: 'T', artist: 'A', year: 2005, spotifyId: '12345678901234567890' },
+        challengePhase: {
+            originalPlayerIndex: 0,
+            originalDropIndex: 0,
+            challengers: [],
+            currentChallengerIdx: 0,
+            winnerChallengerPlayerIndex: null,
+        },
+    },
+    result => {
+        assert('V1→V2: challenge → PRE_REVEAL', result === true);
+        assert('V1→V2: gamePhase is PRE_REVEAL', G.gamePhase === Phase.PRE_REVEAL);
+    },
+);
+
+testMigration(
+    'V1 with no currentSong → PASS_PHONE',
+    {
+        players: [
+            { name: 'A', timeline: [{ year: 2000, title: 'X', artist: 'Y' }], score: 1, tokens: 3 },
+            { name: 'B', timeline: [{ year: 1990, title: 'Z', artist: 'W' }], score: 1, tokens: 3 },
+        ],
+        currentPlayerIndex: 0,
+        cardsToWin: 5,
+    },
+    result => {
+        assert('V1→V2: no song → PASS_PHONE', result === true);
+        assert('V1→V2: gamePhase is PASS_PHONE', G.gamePhase === Phase.PASS_PHONE);
+    },
+);
+
+// ==================== EXTRACT PLAYLIST ID ====================
+section('extractPlaylistId');
+const extractPlaylistId = sandbox.extractPlaylistId;
+
+assert(
+    'Playlist URL: standard format',
+    extractPlaylistId('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M') === '37i9dQZF1DXcBWIGoYBM5M',
+);
+assert(
+    'Playlist URL: with query params',
+    extractPlaylistId('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc123') ===
+        '37i9dQZF1DXcBWIGoYBM5M',
+);
+assert(
+    'Playlist URL: Spotify URI format',
+    extractPlaylistId('spotify:playlist:37i9dQZF1DXcBWIGoYBM5M') === '37i9dQZF1DXcBWIGoYBM5M',
+);
+assert('Playlist URL: bare playlist ID', extractPlaylistId('37i9dQZF1DXcBWIGoYBM5M') === '37i9dQZF1DXcBWIGoYBM5M');
+assert('Playlist URL: null input', extractPlaylistId(null) === null);
+assert('Playlist URL: empty string', extractPlaylistId('') === null);
+assert('Playlist URL: random text', extractPlaylistId('not a playlist url') === null);
+assert(
+    'Playlist URL: track URL rejected',
+    extractPlaylistId('https://open.spotify.com/track/37i9dQZF1DXcBWIGoYBM5M') === null,
+);
+assert('Playlist URL: too short ID rejected', extractPlaylistId('abc') === null);
+assert(
+    'Playlist URL: with http (no s)',
+    extractPlaylistId('http://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M') === '37i9dQZF1DXcBWIGoYBM5M',
+);
+
 // ==================== SUMMARY ====================
 const total = passed + failed;
-console.log('\n' + '='.repeat(40));
-console.log(passed + '/' + total + ' tests passed');
+console.log(`\n${'='.repeat(40)}`);
+console.log(`${passed}/${total} tests passed`);
 if (failed > 0) {
-    console.error(failed + ' test(s) FAILED');
+    console.error(`${failed} test(s) FAILED`);
     process.exit(1);
 } else {
     console.log('All tests passed!');

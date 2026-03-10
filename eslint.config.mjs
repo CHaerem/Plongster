@@ -67,6 +67,9 @@ export default [
             'no-empty': ['error', { allowEmptyCatch: true }],
             'prefer-const': 'warn',
             eqeqeq: ['warn', 'always'],
+            'no-var': 'error',
+            'no-throw-literal': 'error',
+            'prefer-template': 'warn',
         },
     },
     // ─── ES module source files (main.js, src/**) ───
@@ -112,6 +115,19 @@ export default [
             ecmaVersion: 2022,
             sourceType: 'script',
             globals: nodeGlobals,
+        },
+    },
+    // ─── E2E tests: Playwright (page.evaluate uses browser globals) ───
+    {
+        files: ['tests/**/*.js'],
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: 'module',
+            globals: {
+                ...browserGlobals,
+                ...nodeGlobals,
+                caches: 'readonly',
+            },
         },
     },
 ];

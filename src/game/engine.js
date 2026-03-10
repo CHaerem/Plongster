@@ -76,14 +76,12 @@ export const engineMethods = {
         const winner = [...this.players].sort((a, b) => b.score - a.score)[0];
         document.getElementById('winner-name').textContent = winner.name;
         const scoresEl = document.getElementById('final-scores');
-        scoresEl.innerHTML =
-            '<p style="margin-bottom:10px;color:var(--text-dim)">Alle sanger er brukt opp!</p>' +
-            this.players
-                .map(
-                    p =>
-                        `<div class="final-score-row"><span>${escapeHtml(p.name)}</span><span>${p.score} kort \u00B7 \u{1F536}${p.tokens}</span></div>`,
-                )
-                .join('');
+        scoresEl.innerHTML = `<p style="margin-bottom:10px;color:var(--text-dim)">Alle sanger er brukt opp!</p>${this.players
+            .map(
+                p =>
+                    `<div class="final-score-row"><span>${escapeHtml(p.name)}</span><span>${p.score} kort \u00B7 \u{1F536}${p.tokens}</span></div>`,
+            )
+            .join('')}`;
         localStorage.removeItem('plongster-game-state');
         window.App.showScreen('screen-winner');
     },
@@ -258,7 +256,7 @@ export const engineMethods = {
                 const player = this.players[cp.originalPlayerIndex];
                 if (player.tokens >= this.MAX_TOKENS) {
                     claimBtn.disabled = true;
-                    claimBtn.textContent = '\uD83C\uDFA4 Maks tokens (' + this.MAX_TOKENS + ')';
+                    claimBtn.textContent = `\uD83C\uDFA4 Maks tokens (${this.MAX_TOKENS})`;
                 } else {
                     claimBtn.disabled = false;
                     claimBtn.textContent = '\uD83C\uDFA4 Jeg vet tittel og artist (+1 \u{1F536})';
