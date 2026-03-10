@@ -29,6 +29,9 @@
         />
     </head>
     <body>
+        <!-- PR Preview Banner (hidden by default, populated by CI) -->
+        <div id="pr-preview-banner">Preview av <a href="https://github.com/CHaerem/Plongster/pull/36">#36: Add preview link comment on pull requests</a></div>
+
         <!-- Welcome Screen -->
         <div id="screen-welcome" class="screen active">
             <div class="screen-content">
@@ -44,14 +47,6 @@
                 </div>
                 <button class="btn btn-primary btn-large" onclick="App.showSetup()">Start spill</button>
                 <button class="btn btn-ghost" onclick="App.quickStart()">Hurtigstart (2 spillere)</button>
-                <button
-                    class="btn btn-secondary btn-install"
-                    id="btn-install"
-                    onclick="installApp()"
-                    style="display: none"
-                >
-                    Installer appen
-                </button>
             </div>
         </div>
 

@@ -64,6 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
@@ -79,6 +80,15 @@ jobs:
           rm -rf gh-pages/test
           mkdir -p gh-pages/test
           rsync -a --exclude='.git' --exclude='gh-pages' . gh-pages/test/
+          PR_NUM="${{ github.event.pull_request.number }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          # Escape HTML special characters in PR title
+          PR_TITLE="${PR_TITLE//&/&amp;}"
+          PR_TITLE="${PR_TITLE//</&lt;}"
+          PR_TITLE="${PR_TITLE//>/&gt;}"
+          PR_TITLE="${PR_TITLE//\"/&quot;}"
+          sed -i "s|<div id=\"pr-preview-banner\"></div>|<div id=\"pr-preview-banner\">Preview av <a href=\"${PR_URL}\">#${PR_NUM}: ${PR_TITLE}</a></div>|" gh-pages/test/index.html
           cd gh-pages
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -86,3 +96,31 @@ jobs:
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "Deploy PR #${{ github.event.pull_request.number }} preview to /test/"
           git push
+
+      - name: Comment preview link on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- pr-preview-comment -->';
+            const body = `${marker}\n🔗 **Preview:** https://chaerem.github.io/Plongster/test/`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
