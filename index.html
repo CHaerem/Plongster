@@ -43,6 +43,7 @@
                     </p>
                 </div>
                 <button class="btn btn-primary btn-large" onclick="App.showSetup()">Start spill</button>
+                <button class="btn btn-ghost" onclick="App.quickStart()">Hurtigstart (2 spillere)</button>
             </div>
         </div>
 
@@ -186,6 +187,7 @@
                     </button>
                 </div>
                 <div class="current-turn" id="current-turn"></div>
+                <div class="game-info-bar" id="game-info-bar"></div>
             </div>
 
             <div class="game-area">
@@ -263,6 +265,10 @@
                             ⚔️ Utfordre (1 🔶)
                         </button>
                     </div>
+                    <p class="help-tooltip" id="help-tooltip-challenge">
+                        Utfordre = en annen spiller satser 1 🔶 på at de kan plassere sangen riktig.
+                        Tittel-claim gir +1 🔶 hvis du vet tittel og artist.
+                    </p>
                 </div>
 
                 <!-- Phase 2: Result — shown after resolve -->

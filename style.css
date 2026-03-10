@@ -774,6 +774,23 @@ h3 {
     color: var(--text);
 }
 
+.game-info-bar {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 2px 16px 0;
+    opacity: 0.7;
+}
+
+.help-tooltip {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 12px;
+    line-height: 1.5;
+    opacity: 0.7;
+}
+
 .game-area {
     flex: 1;
     padding: 16px;

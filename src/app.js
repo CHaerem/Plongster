@@ -532,6 +532,27 @@ export const App = {
 
     showSetup() {
         this.showScreen('screen-setup');
+        this._restorePlayerNames();
+    },
+
+    _restorePlayerNames() {
+        const saved = this._getSavedPlayerNames();
+        if (saved.length < 2) return;
+
+        const list = document.getElementById('player-list');
+        const inputs = list.querySelectorAll('.player-name-input');
+
+        // Fill existing inputs
+        inputs.forEach((input, i) => {
+            if (i < saved.length) input.value = saved[i];
+        });
+
+        // Add extra rows if saved has more players
+        for (let i = inputs.length; i < saved.length && i < 10; i++) {
+            this.addPlayer();
+            const newInputs = list.querySelectorAll('.player-name-input');
+            newInputs[i].value = saved[i];
+        }
     },
 
     async startGame() {
@@ -551,9 +572,44 @@ export const App = {
             return;
         }
 
+        // Remember player names for next session
+        try {
+            localStorage.setItem('hitster-player-names', JSON.stringify(names));
+        } catch (e) {}
+
         window.Game.init(names, this.winCount);
         this.showScreen('screen-game');
         window.Game.showPassPhone();
+    },
+
+    quickStart() {
+        const savedNames = this._getSavedPlayerNames();
+        const names = savedNames.length >= 2 ? savedNames.slice(0, 2) : ['Spiller 1', 'Spiller 2'];
+
+        if (getSongs().length === 0) {
+            alert('Ingen sanger lastet!');
+            return;
+        }
+
+        try {
+            localStorage.setItem('hitster-player-names', JSON.stringify(names));
+        } catch (e) {}
+
+        window.Game.init(names, this.winCount);
+        this.showScreen('screen-game');
+        window.Game.showPassPhone();
+    },
+
+    _getSavedPlayerNames() {
+        try {
+            const data = localStorage.getItem('hitster-player-names');
+            if (!data) return [];
+            const names = JSON.parse(data);
+            if (Array.isArray(names) && names.every(n => typeof n === 'string' && n.length > 0)) {
+                return names;
+            }
+        } catch (e) {}
+        return [];
     },
 
     getPlayerNames() {

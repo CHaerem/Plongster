@@ -11,12 +11,21 @@ export const uiMethods = {
             .map(
                 (p, i) => `
             <div class="score-chip ${i === this.currentPlayerIndex ? 'active' : ''}">
-                ${escapeHtml(p.name)}: ${p.score}
+                ${escapeHtml(p.name)}: ${p.score}/${this.cardsToWin}
                 <span class="token-count"><span class="token-icon">\u{1F536}</span>${p.tokens}</span>
             </div>
         `,
             )
             .join('');
+        this.renderGameInfo();
+    },
+
+    renderGameInfo() {
+        const el = document.getElementById('game-info-bar');
+        if (!el) return;
+        const remaining = this.deck ? this.deck.length : 0;
+        el.innerHTML =
+            `<span>${remaining} kort igjen i bunken</span>`;
     },
 
     renderCurrentTurn() {
