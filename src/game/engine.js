@@ -26,7 +26,7 @@ export const engineMethods = {
             if (!startCard) return { name, timeline: [], score: 0, tokens: 3 };
             return {
                 name,
-                timeline: [{ title: startCard.title, artist: startCard.artist, year: startCard.year }],
+                timeline: [{ title: startCard.title, artist: startCard.artist, year: startCard.year, coverUrl: startCard.coverUrl || null }],
                 score: 1,
                 tokens: 3,
             };
@@ -605,6 +605,16 @@ export const engineMethods = {
         artist.textContent = this.currentSong.artist;
         year.textContent = this.currentSong.year;
 
+        const coverEl = document.getElementById('reveal-song-cover');
+        if (coverEl) {
+            if (this.currentSong.coverUrl) {
+                coverEl.src = this.currentSong.coverUrl;
+                coverEl.style.display = '';
+            } else {
+                coverEl.style.display = 'none';
+            }
+        }
+
         if ('vibrate' in navigator) {
             navigator.vibrate(isPositive ? [50] : [100, 50, 100]);
         }
@@ -645,6 +655,7 @@ export const engineMethods = {
             title: this.currentSong.title,
             artist: this.currentSong.artist,
             year: this.currentSong.year,
+            coverUrl: this.currentSong.coverUrl || null,
         };
 
         let result;

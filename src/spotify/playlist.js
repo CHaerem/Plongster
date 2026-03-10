@@ -2,6 +2,7 @@
 // Strategy: Fast path (Web API with anon token) → Fallback (embed scraping)
 
 import { fetchViaCorsProxy } from './cors-proxy.js';
+import { extractYear, isValidSong } from '../utils.js';
 
 export function extractPlaylistId(input) {
     if (!input) return null;
@@ -32,7 +33,7 @@ export async function fetchViaWebAPI(playlistId, token, signal) {
     }
 
     // Fetch tracks with pagination
-    let apiUrl = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&fields=items(track(id,name,artists(name),album(release_date))),next,total`;
+    let apiUrl = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&fields=items(track(id,name,artists(name),album(release_date,release_date_precision,images))),next,total`;
     let pages = 0;
     const MAX_PAGES = 10;
 
@@ -58,16 +59,17 @@ export async function fetchViaWebAPI(playlistId, token, signal) {
             const track = item?.track;
             if (!track || !track.id) continue;
 
-            const releaseDate = track.album?.release_date || '';
-            const year = parseInt(releaseDate.substring(0, 4));
-            if (!year || isNaN(year)) continue;
+            const year = extractYear(track.album?.release_date, track.album?.release_date_precision);
+            if (!year) continue;
 
-            songs.push({
+            const song = {
                 title: track.name,
                 artist: track.artists.map(a => a.name).join(' & '),
-                year: year,
+                year,
                 spotifyId: track.id,
-            });
+                coverUrl: track.album?.images?.[1]?.url || track.album?.images?.[0]?.url || null,
+            };
+            if (isValidSong(song)) songs.push(song);
         }
 
         apiUrl = data.next;
@@ -83,15 +85,22 @@ async function fetchTrackReleaseDate(track, signal) {
     const dateMatch = html.match(/"releaseDate":\{"isoString":"([^"]+)"\}/);
     if (!dateMatch) return null;
 
-    const year = new Date(dateMatch[1]).getFullYear();
-    if (!year || isNaN(year)) return null;
+    const year = extractYear(dateMatch[1], 'day');
+    if (!year) return null;
 
-    return {
+    // Try to extract cover art from embed data
+    let coverUrl = null;
+    const coverMatch = html.match(/"coverArt":\{"sources":\[.*?"url":"([^"]+)"/);
+    if (coverMatch) coverUrl = coverMatch[1];
+
+    const song = {
         title: track.title,
         artist: track.artist,
-        year: year,
+        year,
         spotifyId: track.spotifyId,
+        coverUrl,
     };
+    return isValidSong(song) ? song : null;
 }
 
 export async function fetchViaEmbedScraping(playlistId, signal, onProgress) {
