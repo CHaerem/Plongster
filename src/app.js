@@ -552,6 +552,10 @@ export const App = {
 
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(screenId).classList.add('active');
+
+        if (screenId === 'screen-how-to-play') {
+            this.initGuide();
+        }
     },
 
     showSetup() {
@@ -689,5 +693,66 @@ export const App = {
         window.Game.stopPlayback();
         window.Game.clearState();
         this.showScreen('screen-setup');
+    },
+
+    // ─── How to Play Guide ───
+
+    _guideStep: 0,
+    _guideTotalSteps: 6,
+
+    guideStep(delta) {
+        const next = this._guideStep + delta;
+        if (next < 0 || next >= this._guideTotalSteps) return;
+
+        const steps = document.querySelectorAll('#guide-carousel .guide-step');
+        steps[this._guideStep].classList.remove('active');
+        steps[next].classList.add('active');
+        this._guideStep = next;
+        this._updateGuideNav();
+    },
+
+    _updateGuideNav() {
+        const prevBtn = document.getElementById('guide-prev');
+        const nextBtn = document.getElementById('guide-next');
+        const progress = document.getElementById('guide-progress');
+
+        if (prevBtn) prevBtn.style.visibility = this._guideStep === 0 ? 'hidden' : 'visible';
+
+        if (nextBtn) {
+            if (this._guideStep === this._guideTotalSteps - 1) {
+                nextBtn.textContent = 'Start spill!';
+                nextBtn.onclick = () => this.showSetup();
+            } else {
+                nextBtn.textContent = 'Neste';
+                nextBtn.onclick = () => this.guideStep(1);
+            }
+        }
+
+        if (progress) {
+            progress.innerHTML = '';
+            for (let i = 0; i < this._guideTotalSteps; i++) {
+                const dot = document.createElement('button');
+                dot.className = 'guide-dot' + (i === this._guideStep ? ' active' : '');
+                dot.setAttribute('aria-label', `Steg ${i + 1}`);
+                dot.onclick = () => this._guideGoTo(i);
+                progress.appendChild(dot);
+            }
+        }
+    },
+
+    _guideGoTo(step) {
+        if (step < 0 || step >= this._guideTotalSteps || step === this._guideStep) return;
+        const steps = document.querySelectorAll('#guide-carousel .guide-step');
+        steps[this._guideStep].classList.remove('active');
+        steps[step].classList.add('active');
+        this._guideStep = step;
+        this._updateGuideNav();
+    },
+
+    initGuide() {
+        this._guideStep = 0;
+        const steps = document.querySelectorAll('#guide-carousel .guide-step');
+        steps.forEach((s, i) => s.classList.toggle('active', i === 0));
+        this._updateGuideNav();
     },
 };
