@@ -38,6 +38,7 @@ const nodeGlobals = {
     __filename: 'readonly',
     Buffer: 'readonly',
     console: 'readonly',
+    fetch: 'readonly',
     setTimeout: 'readonly',
     clearTimeout: 'readonly',
     setInterval: 'readonly',
@@ -56,13 +57,13 @@ export default [
     {
         rules: {
             // Indentation handled by Prettier — disable to avoid conflicts
-            'indent': 'off',
+            indent: 'off',
             'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^e$|^_' }],
             'no-console': 'off',
             'no-constant-condition': 'warn',
             'no-empty': ['error', { allowEmptyCatch: true }],
             'prefer-const': 'warn',
-            'eqeqeq': ['warn', 'always'],
+            eqeqeq: ['warn', 'always'],
         },
     },
     // ─── ES module source files (main.js, src/**) ───
@@ -72,24 +73,6 @@ export default [
             ecmaVersion: 2022,
             sourceType: 'module',
             globals: browserGlobals,
-        },
-    },
-    // ─── Legacy script files (songs.js, game.js, app.js) — kept for reference ───
-    {
-        files: ['songs.js', 'game.js', 'app.js'],
-        languageOptions: {
-            ecmaVersion: 2022,
-            sourceType: 'script',
-            globals: {
-                ...browserGlobals,
-                SONGS_DATABASE: 'writable',
-                shuffleArray: 'readonly',
-                App: 'readonly',
-                Game: 'readonly',
-            },
-        },
-        rules: {
-            'no-unused-vars': 'off',
         },
     },
     // ─── Service worker ───

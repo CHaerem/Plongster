@@ -22,20 +22,37 @@ node tools/generate-songs.js <spotify-playlist-url>
 
 ## Architecture
 
-Single-page app with 5 screens managed by showing/hiding divs (no router):
+Single-page app with 5 screens managed by showing/hiding divs (no router). ES modules, no build step.
+
+**Entry point:**
 - `index.html` — All UI screens and overlays
-- `app.js` — App controller: Spotify loading, playlist fetching, screen management
-- `game.js` — Game logic: state, turns, challenges, tokens, timeline, rendering
-- `songs.js` — Song database (`SONGS_DATABASE` array, 1200+ songs)
+- `main.js` — Entry point: composes `Game` from modules, exposes `App`/`Game` on `window`, initializes app
+
+**Modules:**
+- `src/app.js` — App controller: screen management, setup, playlist loading, genre filtering
+- `src/songs.js` — Songs store (get/set/reset) wrapping the raw database
+- `src/utils.js` — Shared utilities: `escapeHtml()`, `shuffleArray()`
+- `src/game/engine.js` — Core game logic: init, turns, placement, challenges, tokens
+- `src/game/ui.js` — DOM rendering: timeline, scores, overlays, game actions
+- `src/game/spotify.js` — Spotify embed playback control and retry logic
+- `src/game/state.js` — State persistence: save/restore/clear to localStorage
+- `src/game/gm-panel.js` — Game Master panel: player/score/timeline editing
+- `src/spotify/auth.js` — Anonymous Spotify token acquisition
+- `src/spotify/playlist.js` — Playlist loading (Web API + embed scraping fallback)
+- `src/spotify/cors-proxy.js` — CORS proxy rotation layer
+
+**Data & infrastructure:**
+- `songs-data.js` — Raw song database (`SONGS_DATA` array, 1200+ songs)
 - `style.css` — Dark theme, CSS variables, responsive, mobile-first
 - `sw.js` — Service worker for PWA offline caching
 - `test.js` — Node.js test suite (no external dependencies)
+- `tests.html` — Browser-based test suite
 
-`App` and `Game` are object singletons (not classes). State lives in `Game` and persists to `localStorage` as `hitster-*` keys.
+`App` and `Game` are object singletons (not classes) exposed on `window`. Game is composed from module method objects using `Object.defineProperties` to preserve getters. State lives in `Game` and persists to `localStorage` as `hitster-*` keys.
 
 ## Code Style
 
-- Vanilla JS only — no npm packages, no transpilation, no modules
+- Vanilla JS with ES modules — no npm runtime packages, no transpilation, no bundler
 - 4-space indentation
 - camelCase for variables/functions, UPPER_SNAKE for constants
 - Section dividers: `// ─── Section Name ───`
@@ -94,5 +111,5 @@ Valid genres: pop, rock, hiphop, electronic, norwegian, soul, country, latin, me
 
 - Service worker caches aggressively — bump `CACHE_VERSION` in sw.js when changing files
 - Spotify embed needs valid track IDs — validate format: 22 alphanumeric chars
-- `songs.js` is large (~157KB) — don't read it unless modifying song data
+- `songs-data.js` is large (~157KB) — don't read it unless modifying song data
 - The app uses root-relative paths in sw.js but relative paths in HTML

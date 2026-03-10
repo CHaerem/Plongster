@@ -75,10 +75,45 @@
         <div id="btn-challenge" style="display: none"></div>
         <div id="btn-claim-title" style="display: none"></div>
 
-        <script src="songs.js"></script>
-        <script src="game.js"></script>
+        <script type="module">
+            import { SONGS_DATA } from './songs-data.js';
+            import { shuffleArray, escapeHtml } from './src/utils.js';
+            import { engineMethods } from './src/game/engine.js';
+            import { uiMethods } from './src/game/ui.js';
+            import { spotifyMethods } from './src/game/spotify.js';
+            import { stateMethods } from './src/game/state.js';
+            import { gmMethods } from './src/game/gm-panel.js';
+            import { setSongs } from './src/songs.js';
 
-        <script>
+            // Set up songs store so Game.init() can access them
+            setSongs([...SONGS_DATA]);
+
+            // Compose Game object (same as main.js)
+            const Game = {
+                players: [],
+                currentPlayerIndex: 0,
+                cardsToWin: 10,
+                deck: [],
+                currentSong: null,
+                usedSongs: new Set(),
+                isWaitingForPlacement: false,
+                selectedDropIndex: null,
+                spotifyAPI: null,
+                embedController: null,
+                hasPlayedSong: false,
+                _isPlaying: false,
+                challengePhase: null,
+                titleArtistClaimed: false,
+                MAX_TOKENS: 5,
+            };
+            [engineMethods, uiMethods, spotifyMethods, stateMethods, gmMethods].forEach(methods => {
+                Object.defineProperties(Game, Object.getOwnPropertyDescriptors(methods));
+            });
+            window.Game = Game;
+
+            // Alias for test compatibility
+            const SONGS_DATABASE = SONGS_DATA;
+
             const results = document.getElementById('results');
             const summary = document.getElementById('summary');
             let passed = 0;
