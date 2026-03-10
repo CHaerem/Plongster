@@ -20,6 +20,9 @@ export const engineMethods = {
         this.challengePhase = null;
         this.titleArtistClaimed = false;
         this.gamePhase = Phase.IDLE;
+        this._dropDebounce = false;
+        this._challengeDebounce = false;
+        this._nextTurnDebounce = false;
 
         this.players = playerNames.map(name => {
             const startCard = this.drawSong();
@@ -416,6 +419,11 @@ export const engineMethods = {
     },
 
     selectChallenger(playerIndex) {
+        if (this._challengeDebounce) return;
+        this._challengeDebounce = true;
+        setTimeout(() => {
+            this._challengeDebounce = false;
+        }, 300);
         if (this.players[playerIndex].tokens < 1) return;
         const cp = this.challengePhase;
         this.players[playerIndex].tokens = Math.max(0, this.players[playerIndex].tokens - 1);
@@ -715,6 +723,11 @@ export const engineMethods = {
     },
 
     nextTurn() {
+        if (this._nextTurnDebounce) return;
+        this._nextTurnDebounce = true;
+        setTimeout(() => {
+            this._nextTurnDebounce = false;
+        }, 300);
         this.currentSong = null;
         this.challengePhase = null;
         this.titleArtistClaimed = false;
