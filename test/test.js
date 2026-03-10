@@ -158,6 +158,7 @@ vm.runInContext(
 const G = sandbox.Game;
 const DB = sandbox.SONGS_DATABASE;
 const shuffle = sandbox.shuffleArray;
+const Phase = sandbox.Phase;
 
 let passed = 0,
     failed = 0;
@@ -935,6 +936,88 @@ assert('Score recalculated: B has 1', G.players[1].score === 1);
 // No saved state
 delete storageBacking['hitster-game'];
 assert('No saved state: returns false', G.restoreState() === false);
+
+// State versioning: V2 state saved with stateVersion
+G.init(['Alice', 'Bob'], 5);
+G.currentSong = G.drawSong();
+G.hasPlayedSong = true;
+G.isWaitingForPlacement = true;
+G.gamePhase = Phase.PLACING;
+G.saveState();
+const savedV2 = JSON.parse(storageBacking['hitster-game']);
+assert('Save includes stateVersion 2', savedV2.stateVersion === 2);
+assert('Save includes gamePhase', savedV2.gamePhase === 'PLACING');
+
+// V1 migration: unversioned state gets gamePhase inferred
+const v1State = {
+    players: [
+        { name: 'A', timeline: [{ year: 2000, title: 'X', artist: 'Y' }], score: 1, tokens: 3 },
+        { name: 'B', timeline: [], score: 0, tokens: 3 },
+    ],
+    currentPlayerIndex: 0,
+    cardsToWin: 5,
+    usedSongs: [],
+    currentSong: { title: 'Test', artist: 'Test', year: 2000, spotifyId: 'abc123' },
+    hasPlayedSong: true,
+    isWaitingForPlacement: true,
+    challengePhase: null,
+    titleArtistClaimed: false,
+};
+storageBacking['hitster-game'] = JSON.stringify(v1State);
+assert('V1 state restores successfully', G.restoreState() === true);
+assert('V1 migration: gamePhase inferred as PLACING', G.gamePhase === 'PLACING');
+
+// V1 migration with challengePhase → PRE_REVEAL
+const v1Challenge = {
+    players: [
+        { name: 'A', timeline: [], score: 0, tokens: 3 },
+        { name: 'B', timeline: [], score: 0, tokens: 3 },
+    ],
+    currentPlayerIndex: 0,
+    cardsToWin: 5,
+    usedSongs: [],
+    currentSong: { title: 'T', artist: 'A', year: 2000, spotifyId: 'xyz789' },
+    hasPlayedSong: false,
+    isWaitingForPlacement: false,
+    challengePhase: { originalPlayerIndex: 0, originalDropIndex: 1, challengers: [], currentChallengerIdx: 0 },
+    titleArtistClaimed: false,
+};
+storageBacking['hitster-game'] = JSON.stringify(v1Challenge);
+assert('V1 with challenge restores', G.restoreState() === true);
+assert('V1 challenge: gamePhase is PRE_REVEAL', G.gamePhase === 'PRE_REVEAL');
+
+// V1 migration with no currentSong → PASS_PHONE
+const v1NoSong = {
+    players: [
+        { name: 'A', timeline: [], score: 0, tokens: 3 },
+        { name: 'B', timeline: [], score: 0, tokens: 3 },
+    ],
+    currentPlayerIndex: 0,
+    cardsToWin: 5,
+    usedSongs: [],
+    currentSong: null,
+    hasPlayedSong: false,
+    isWaitingForPlacement: false,
+    challengePhase: null,
+    titleArtistClaimed: false,
+};
+storageBacking['hitster-game'] = JSON.stringify(v1NoSong);
+assert('V1 no song restores', G.restoreState() === true);
+assert('V1 no song: gamePhase is PASS_PHONE', G.gamePhase === 'PASS_PHONE');
+
+// Unknown future version resets
+const futureState = {
+    stateVersion: 99,
+    players: [
+        { name: 'A', timeline: [], score: 0 },
+        { name: 'B', timeline: [], score: 0 },
+    ],
+    currentPlayerIndex: 0,
+    cardsToWin: 5,
+};
+storageBacking['hitster-game'] = JSON.stringify(futureState);
+assert('Future version: restoreState returns false', G.restoreState() === false);
+assert('Future version: state cleared', !storageBacking['hitster-game']);
 
 // ==================== FULL GAME FLOW SIMULATION ====================
 section('Full Game Flow (2 players, win at 3)');

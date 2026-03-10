@@ -1,12 +1,92 @@
 // Game state persistence — save/restore/clear to localStorage
+// Versioned format with migration chain for backward compatibility
 
 import { getSongs } from '../songs.js';
 import { shuffleArray } from '../utils.js';
 import { Phase } from './phases.js';
 
+const STATE_VERSION = 2;
+
+// ─── Migration Chain ───
+
+/**
+ * Migrate V1 (unversioned) state to V2.
+ * V1 used boolean flags; V2 adds gamePhase and stateVersion.
+ */
+function migrateV1toV2(state) {
+    // Infer gamePhase from boolean flags
+    if (state.challengePhase) {
+        state.gamePhase = Phase.PRE_REVEAL;
+    } else if (state.currentSong) {
+        state.gamePhase = state.hasPlayedSong ? Phase.PLACING : Phase.LISTENING;
+    } else {
+        state.gamePhase = Phase.PASS_PHONE;
+    }
+    state.stateVersion = 2;
+    return state;
+}
+
+const MIGRATIONS = [
+    // [fromVersion, migrateFn]
+    [1, migrateV1toV2],
+];
+
+/**
+ * Run migrations to bring state up to current version.
+ * Returns the migrated state, or null if migration fails.
+ */
+function migrateState(state) {
+    let version = state.stateVersion || 1;
+
+    for (const [fromVersion, migrateFn] of MIGRATIONS) {
+        if (version === fromVersion) {
+            try {
+                state = migrateFn(state);
+                version = state.stateVersion;
+            } catch (e) {
+                console.warn(`Migration V${fromVersion} failed:`, e);
+                return null;
+            }
+        }
+    }
+
+    if (version !== STATE_VERSION) {
+        console.warn(`Unknown state version ${version}, expected ${STATE_VERSION}`);
+        return null;
+    }
+
+    return state;
+}
+
+// ─── Validation ───
+
+function isValidState(state) {
+    if (!state || typeof state !== 'object') return false;
+    if (!Array.isArray(state.players) || state.players.length < 2) return false;
+    if (typeof state.currentPlayerIndex !== 'number') return false;
+    if (state.currentPlayerIndex < 0 || state.currentPlayerIndex >= state.players.length) return false;
+    if (typeof state.cardsToWin !== 'number' || state.cardsToWin < 1) return false;
+    if (
+        !state.players.every(
+            p =>
+                typeof p.name === 'string' &&
+                p.name.length > 0 &&
+                Array.isArray(p.timeline) &&
+                typeof p.score === 'number',
+        )
+    )
+        return false;
+    // Validate gamePhase if present (V2+)
+    if (state.gamePhase && !Object.values(Phase).includes(state.gamePhase)) return false;
+    return true;
+}
+
+// ─── Public Methods ───
+
 export const stateMethods = {
     saveState() {
         const state = {
+            stateVersion: STATE_VERSION,
             players: this.players,
             currentPlayerIndex: this.currentPlayerIndex,
             cardsToWin: this.cardsToWin,
@@ -29,23 +109,17 @@ export const stateMethods = {
         const data = localStorage.getItem('hitster-game');
         if (!data) return false;
         try {
-            const state = JSON.parse(data);
+            let state = JSON.parse(data);
 
-            // Validate structure to prevent crashes from corrupt data
-            if (!Array.isArray(state.players) || state.players.length < 2) return false;
-            if (typeof state.currentPlayerIndex !== 'number') return false;
-            if (state.currentPlayerIndex < 0 || state.currentPlayerIndex >= state.players.length) return false;
-            if (typeof state.cardsToWin !== 'number' || state.cardsToWin < 1) return false;
-            if (
-                !state.players.every(
-                    p =>
-                        typeof p.name === 'string' &&
-                        p.name.length > 0 &&
-                        Array.isArray(p.timeline) &&
-                        typeof p.score === 'number',
-                )
-            )
+            // Validate basic structure before migration
+            if (!isValidState(state)) return false;
+
+            // Run migrations if needed
+            state = migrateState(state);
+            if (!state) {
+                this.clearState();
                 return false;
+            }
 
             this.players = state.players;
             this.players.forEach(p => {
@@ -64,17 +138,7 @@ export const stateMethods = {
             this.challengePhase = state.challengePhase || null;
             this.titleArtistClaimed = !!state.titleArtistClaimed;
             this._challengerMode = false;
-
-            // Restore gamePhase, falling back to inferring from booleans
-            if (state.gamePhase && Object.values(Phase).includes(state.gamePhase)) {
-                this.gamePhase = state.gamePhase;
-            } else if (this.challengePhase) {
-                this.gamePhase = Phase.PRE_REVEAL;
-            } else if (this.currentSong) {
-                this.gamePhase = this.hasPlayedSong ? Phase.PLACING : Phase.LISTENING;
-            } else {
-                this.gamePhase = Phase.PASS_PHONE;
-            }
+            this.gamePhase = state.gamePhase || Phase.PASS_PHONE;
 
             // Backwards compatibility: migrate old challengePhase format
             if (this.challengePhase && !Array.isArray(this.challengePhase.challengers)) {
