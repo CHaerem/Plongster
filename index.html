@@ -63,10 +63,10 @@
                     <!-- Step 1: Objective -->
                     <div class="guide-step active" data-step="0">
                         <div class="guide-icon">🎯</div>
-                        <h3 class="guide-step-title">Malet</h3>
+                        <h3 class="guide-step-title">Målet</h3>
                         <p class="guide-text">
-                            Plasser sanger i riktig kronologisk rekkefolge pa tidslinjen din.
-                            Forste spiller som nar malet (standard: 10 kort) vinner!
+                            Plasser sanger i riktig kronologisk rekkefølge på tidslinjen din. Første spiller som når
+                            målet (standard: 10 kort) vinner!
                         </p>
                         <div class="guide-visual">
                             <div class="guide-timeline-demo">
@@ -91,13 +91,17 @@
                         <div class="guide-icon">🎧</div>
                         <h3 class="guide-step-title">Lytt til sangen</h3>
                         <p class="guide-text">
-                            Hver runde spilles en sang. Lytt noyeog prov a gjette nar den ble utgitt.
-                            Tittelen er skjult mens du lytter!
+                            Hver runde spilles en sang. Lytt nøye og prøv å gjette når den ble utgitt. Tittelen er
+                            skjult mens du lytter!
                         </p>
                         <div class="guide-visual">
                             <div class="guide-player-demo">
                                 <div class="guide-bars">
-                                    <span></span><span></span><span></span><span></span><span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
                                 </div>
                                 <p class="guide-demo-label">??? — Ukjent sang</p>
                             </div>
@@ -107,9 +111,9 @@
                     <!-- Step 3: Place -->
                     <div class="guide-step" data-step="2">
                         <div class="guide-icon">📍</div>
-                        <h3 class="guide-step-title">Plasser pa tidslinjen</h3>
+                        <h3 class="guide-step-title">Plasser på tidslinjen</h3>
                         <p class="guide-text">
-                            Trykk pa en plassering mellom kortene dine for a sette sangen der du tror den horer hjemme.
+                            Trykk på en plassering mellom kortene dine for å sette sangen der du tror den hører hjemme.
                             Riktig plassering = kortet beholdes!
                         </p>
                         <div class="guide-visual">
@@ -132,8 +136,8 @@
                         <div class="guide-icon">⚔️</div>
                         <h3 class="guide-step-title">Utfordringer</h3>
                         <p class="guide-text">
-                            Etter plassering kan du utfordre en annen spiller! De satser 1 token
-                            pa a plassere sangen riktig pa sin tidslinje. Vinner utfordreren, stjeles kortet!
+                            Etter plassering kan du utfordre en annen spiller! De satser 1 token på å plassere sangen
+                            riktig på sin tidslinje. Vinner utfordreren, stjeles kortet!
                         </p>
                         <div class="guide-visual">
                             <div class="guide-challenge-demo">
@@ -142,7 +146,7 @@
                                     <span class="guide-vs">VS</span>
                                     <span class="guide-player-b">Spiller B</span>
                                 </div>
-                                <p class="guide-demo-label">Koster 1 token a utfordre</p>
+                                <p class="guide-demo-label">Koster 1 token å utfordre</p>
                             </div>
                         </div>
                     </div>
@@ -152,8 +156,8 @@
                         <div class="guide-icon">🔶</div>
                         <h3 class="guide-step-title">Tokens</h3>
                         <p class="guide-text">
-                            Alle starter med 3 tokens. Bruk dem til a utfordre motstandere.
-                            Tjen ekstra tokens ved a gjette tittel og artist riktig!
+                            Alle starter med 3 tokens. Bruk dem til å utfordre motstandere. Tjen ekstra tokens ved å
+                            gjette tittel og artist riktig!
                         </p>
                         <div class="guide-visual">
                             <div class="guide-tokens-demo">
@@ -174,8 +178,8 @@
                         <div class="guide-icon">🏆</div>
                         <h3 class="guide-step-title">Vinn spillet!</h3>
                         <p class="guide-text">
-                            Forste spiller som far nok kort pa tidslinjen vinner.
-                            Antall kort kan justeres i innstillingene (3–20).
+                            Første spiller som får nok kort på tidslinjen vinner. Antall kort kan justeres i
+                            innstillingene (3–20).
                         </p>
                         <div class="guide-visual">
                             <div class="guide-win-demo">
@@ -187,8 +191,12 @@
                 </div>
 
                 <div class="guide-nav">
-                    <button class="btn btn-ghost guide-nav-btn" id="guide-prev" onclick="App.guideStep(-1)">Forrige</button>
-                    <button class="btn btn-primary guide-nav-btn" id="guide-next" onclick="App.guideStep(1)">Neste</button>
+                    <button class="btn btn-ghost guide-nav-btn" id="guide-prev" onclick="App.guideStep(-1)">
+                        Forrige
+                    </button>
+                    <button class="btn btn-primary guide-nav-btn" id="guide-next" onclick="App.guideStep(1)">
+                        Neste
+                    </button>
                 </div>
                 <button class="btn btn-ghost" onclick="App.showScreen('screen-welcome')">Tilbake til meny</button>
             </div>

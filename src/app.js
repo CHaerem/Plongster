@@ -698,17 +698,13 @@ export const App = {
     // ─── How to Play Guide ───
 
     _guideStep: 0,
-    _guideTotalSteps: 6,
+
+    get _guideTotalSteps() {
+        return document.querySelectorAll('#guide-carousel .guide-step').length;
+    },
 
     guideStep(delta) {
-        const next = this._guideStep + delta;
-        if (next < 0 || next >= this._guideTotalSteps) return;
-
-        const steps = document.querySelectorAll('#guide-carousel .guide-step');
-        steps[this._guideStep].classList.remove('active');
-        steps[next].classList.add('active');
-        this._guideStep = next;
-        this._updateGuideNav();
+        this._guideGoTo(this._guideStep + delta);
     },
 
     _updateGuideNav() {

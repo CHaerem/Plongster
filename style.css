@@ -2085,7 +2085,8 @@ body.overlay-active {
 }
 
 @keyframes dropzonePulse {
-    0%, 100% {
+    0%,
+    100% {
         border-color: rgba(29, 185, 84, 0.4);
     }
     50% {
@@ -2119,11 +2120,26 @@ body.overlay-active {
     animation: barBounce 1s ease-in-out infinite;
 }
 
-.guide-bars span:nth-child(1) { height: 10px; animation-delay: 0s; }
-.guide-bars span:nth-child(2) { height: 20px; animation-delay: 0.15s; }
-.guide-bars span:nth-child(3) { height: 30px; animation-delay: 0.3s; }
-.guide-bars span:nth-child(4) { height: 16px; animation-delay: 0.45s; }
-.guide-bars span:nth-child(5) { height: 24px; animation-delay: 0.6s; }
+.guide-bars span:nth-child(1) {
+    height: 10px;
+    animation-delay: 0s;
+}
+.guide-bars span:nth-child(2) {
+    height: 20px;
+    animation-delay: 0.15s;
+}
+.guide-bars span:nth-child(3) {
+    height: 30px;
+    animation-delay: 0.3s;
+}
+.guide-bars span:nth-child(4) {
+    height: 16px;
+    animation-delay: 0.45s;
+}
+.guide-bars span:nth-child(5) {
+    height: 24px;
+    animation-delay: 0.6s;
+}
 
 .guide-demo-label {
     font-size: 13px;
@@ -2214,8 +2230,13 @@ body.overlay-active {
 }
 
 @keyframes trophyBounce {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
+    0%,
+    100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
 }
 
 .guide-win-text {
