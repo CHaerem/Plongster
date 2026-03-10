@@ -1,7 +1,7 @@
 // Hitster Service Worker
 // Caches app shell for offline/installable PWA experience
 
-const CACHE_VERSION = 'hitster-v34';
+const CACHE_VERSION = 'hitster-v35';
 
 // App shell — files needed for the app to work
 const APP_SHELL = [
@@ -30,6 +30,7 @@ const APP_SHELL = [
     '/icons/icon-192-maskable.png',
     '/icons/icon-512.png',
     '/icons/icon-512-maskable.png',
+    '/icons/apple-touch-icon.png',
 ];
 
 // External resources to cache (fonts)

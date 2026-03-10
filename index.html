@@ -370,21 +370,41 @@
                 navigator.serviceWorker
                     .register('./sw.js')
                     .then(reg => {
-                        // Check for updates periodically
+                        // Check for updates on page load
                         reg.addEventListener('updatefound', () => {
                             const newWorker = reg.installing;
                             newWorker.addEventListener('statechange', () => {
                                 if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-                                    // New version available — the stale-while-revalidate strategy
-                                    // ensures the next page load gets fresh assets
-                                    console.log('Hitster oppdatert! Ny versjon klar ved neste lasting.');
+                                    // New version available — show update banner
+                                    const banner = document.getElementById('update-banner');
+                                    if (banner) banner.style.display = '';
                                 }
                             });
                         });
+                        // Also check for waiting worker (e.g. from a previous visit)
+                        if (reg.waiting && navigator.serviceWorker.controller) {
+                            const banner = document.getElementById('update-banner');
+                            if (banner) banner.style.display = '';
+                        }
                     })
                     .catch(err => console.warn('SW registrering feilet:', err));
+
+                // When a new SW takes over, reload to get fresh assets
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (!refreshing) {
+                        refreshing = true;
+                        window.location.reload();
+                    }
+                });
             }
         </script>
+        <!-- Update Banner -->
+        <div id="update-banner" class="update-banner" style="display: none">
+            Ny versjon tilgjengelig!
+            <button onclick="window.location.reload()">Oppdater</button>
+        </div>
+
         <!-- Offline Banner -->
         <div id="offline-banner" class="offline-banner" style="display: none">
             Ingen internettforbindelse — noen funksjoner er utilgjengelige
