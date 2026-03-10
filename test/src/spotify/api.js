@@ -6,23 +6,6 @@ import { getAccessToken } from './oauth.js';
 import { extractYear, isValidSong } from '../utils.js';
 
 /**
- * Fetch with automatic retry on 429 (Too Many Requests) responses.
- * Uses Retry-After header or exponential backoff.
- */
-async function fetchWithRetry(url, options, maxRetries = 3) {
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        const response = await fetch(url, options);
-        if (response.status !== 429 || attempt === maxRetries) return response;
-
-        const retryAfter = response.headers.get('Retry-After');
-        const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : 1000 * 2 ** attempt;
-        await new Promise(resolve => setTimeout(resolve, delay));
-
-        if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    }
-}
-
-/**
  * Fetch the user's playlists (paginated).
  * Returns { items: [...], total, hasMore }
  */
@@ -31,7 +14,7 @@ export async function fetchUserPlaylists(offset = 0, limit = 50, signal) {
     if (!token) throw new Error('Ikke logget inn');
 
     const url = `${SPOTIFY_CONFIG.apiBase}/me/playlists?limit=${limit}&offset=${offset}`;
-    const response = await fetchWithRetry(url, {
+    const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
         signal,
     });
@@ -64,7 +47,7 @@ export async function fetchPlaylistTracks(playlistId, signal, onProgress) {
     // Fetch playlist name
     let playlistName = 'Spilleliste';
     try {
-        const nameResp = await fetchWithRetry(`${SPOTIFY_CONFIG.apiBase}/playlists/${playlistId}?fields=name`, {
+        const nameResp = await fetch(`${SPOTIFY_CONFIG.apiBase}/playlists/${playlistId}?fields=name`, {
             headers: { Authorization: `Bearer ${token}` },
             signal,
         });
@@ -87,7 +70,7 @@ export async function fetchPlaylistTracks(playlistId, signal, onProgress) {
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
         pages++;
 
-        const response = await fetchWithRetry(apiUrl, {
+        const response = await fetch(apiUrl, {
             headers: { Authorization: `Bearer ${token}` },
             signal,
         });
