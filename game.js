@@ -12,7 +12,7 @@ const Game = {
     embedController: null,
     hasPlayedSong: false,
     _isPlaying: false,
-    challengePhase: null,   // { originalPlayerIndex, originalDropIndex, challengers[], currentChallengerIdx, winnerChallengerPlayerIndex }
+    challengePhase: null, // { originalPlayerIndex, originalDropIndex, challengers[], currentChallengerIdx, winnerChallengerPlayerIndex }
     titleArtistClaimed: false,
     MAX_TOKENS: 5,
 
@@ -83,10 +83,14 @@ const Game = {
         const winner = [...this.players].sort((a, b) => b.score - a.score)[0];
         document.getElementById('winner-name').textContent = winner.name;
         const scoresEl = document.getElementById('final-scores');
-        scoresEl.innerHTML = '<p style="margin-bottom:10px;color:var(--text-dim)">Alle sanger er brukt opp!</p>' +
-            this.players.map(p =>
-                `<div class="final-score-row"><span>${this.escapeHtml(p.name)}</span><span>${p.score} kort \u00B7 \u{1F536}${p.tokens}</span></div>`
-            ).join('');
+        scoresEl.innerHTML =
+            '<p style="margin-bottom:10px;color:var(--text-dim)">Alle sanger er brukt opp!</p>' +
+            this.players
+                .map(
+                    p =>
+                        `<div class="final-score-row"><span>${this.escapeHtml(p.name)}</span><span>${p.score} kort \u00B7 \u{1F536}${p.tokens}</span></div>`,
+                )
+                .join('');
         localStorage.removeItem('hitster-game-state');
         App.showScreen('screen-winner');
     },
@@ -179,7 +183,7 @@ const Game = {
             this._updatePlaybackUI('ready');
         });
 
-        controller.addListener('playback_update', (e) => {
+        controller.addListener('playback_update', e => {
             if (!e.data) return;
 
             if (!e.data.isPaused && !e.data.isBuffering) {
@@ -245,15 +249,11 @@ const Game = {
         }, 4000);
 
         try {
-            this.spotifyAPI.createController(
-                iframeEl,
-                { uri, height: 152, width: '100%', theme: 0 },
-                (controller) => {
-                    if (gen !== this._loadGeneration) return;
-                    this.embedController = controller;
-                    this._setupListeners(controller);
-                }
-            );
+            this.spotifyAPI.createController(iframeEl, { uri, height: 152, width: '100%', theme: 0 }, controller => {
+                if (gen !== this._loadGeneration) return;
+                this.embedController = controller;
+                this._setupListeners(controller);
+            });
         } catch (e) {
             console.error('Spotify createController error:', e);
             if (gen !== this._loadGeneration) return;
@@ -277,15 +277,20 @@ const Game = {
         if (!playPauseBtn || !bars || !text || !controls) return;
 
         // Play/pause icon SVGs
-        const playIcon = '<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>';
-        const pauseIcon = '<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>';
+        const playIcon =
+            '<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>';
+        const pauseIcon =
+            '<svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>';
 
         switch (state) {
             case 'loading':
                 playPauseBtn.innerHTML = playIcon;
                 playPauseBtn.disabled = true;
                 playPauseBtn.style.opacity = '0.4';
-                if (replayBtn) { replayBtn.disabled = true; replayBtn.style.opacity = '0.4'; }
+                if (replayBtn) {
+                    replayBtn.disabled = true;
+                    replayBtn.style.opacity = '0.4';
+                }
                 bars.style.display = 'none';
                 controls.style.display = 'flex';
                 text.textContent = 'Laster sang...';
@@ -295,7 +300,10 @@ const Game = {
                 playPauseBtn.innerHTML = playIcon;
                 playPauseBtn.disabled = false;
                 playPauseBtn.style.opacity = '';
-                if (replayBtn) { replayBtn.disabled = false; replayBtn.style.opacity = ''; }
+                if (replayBtn) {
+                    replayBtn.disabled = false;
+                    replayBtn.style.opacity = '';
+                }
                 bars.style.display = 'none';
                 controls.style.display = 'flex';
                 text.textContent = 'Trykk for å spille';
@@ -305,7 +313,10 @@ const Game = {
                 playPauseBtn.innerHTML = pauseIcon;
                 playPauseBtn.disabled = false;
                 playPauseBtn.style.opacity = '';
-                if (replayBtn) { replayBtn.disabled = false; replayBtn.style.opacity = ''; }
+                if (replayBtn) {
+                    replayBtn.disabled = false;
+                    replayBtn.style.opacity = '';
+                }
                 bars.style.display = 'flex';
                 controls.style.display = 'flex';
                 text.textContent = 'Lytt og plasser sangen i tidslinjen';
@@ -315,7 +326,10 @@ const Game = {
                 playPauseBtn.innerHTML = playIcon;
                 playPauseBtn.disabled = false;
                 playPauseBtn.style.opacity = '';
-                if (replayBtn) { replayBtn.disabled = false; replayBtn.style.opacity = ''; }
+                if (replayBtn) {
+                    replayBtn.disabled = false;
+                    replayBtn.style.opacity = '';
+                }
                 bars.style.display = 'none';
                 controls.style.display = 'flex';
                 text.textContent = 'Trykk for å spille';
@@ -325,7 +339,10 @@ const Game = {
                 playPauseBtn.innerHTML = playIcon;
                 playPauseBtn.disabled = true;
                 playPauseBtn.style.opacity = '0.4';
-                if (replayBtn) { replayBtn.disabled = true; replayBtn.style.opacity = '0.4'; }
+                if (replayBtn) {
+                    replayBtn.disabled = true;
+                    replayBtn.style.opacity = '0.4';
+                }
                 bars.style.display = 'none';
                 controls.style.display = 'flex';
                 text.textContent = 'Spotify kunne ikke lastes. Sjekk at adblocker ikke blokkerer.';
@@ -340,7 +357,9 @@ const Game = {
             this._loadTimeout = null;
         }
         if (this.embedController && this._isPlaying) {
-            try { this.embedController.togglePlay(); } catch (e) {}
+            try {
+                this.embedController.togglePlay();
+            } catch (e) {}
             this._isPlaying = false;
         }
     },
@@ -353,7 +372,9 @@ const Game = {
         }
         if (this.embedController) {
             if (this._isPlaying) {
-                try { this.embedController.togglePlay(); } catch (e) {}
+                try {
+                    this.embedController.togglePlay();
+                } catch (e) {}
             }
             this.embedController = null;
         }
@@ -403,7 +424,9 @@ const Game = {
     skipSongWithToken() {
         if (this._skipDebounce) return;
         this._skipDebounce = true;
-        setTimeout(() => { this._skipDebounce = false; }, 500);
+        setTimeout(() => {
+            this._skipDebounce = false;
+        }, 500);
 
         const player = this.currentPlayer;
         if (player.tokens < 1) return;
@@ -417,7 +440,9 @@ const Game = {
     tradeTokensForCard() {
         if (this._tradeDebounce) return;
         this._tradeDebounce = true;
-        setTimeout(() => { this._tradeDebounce = false; }, 500);
+        setTimeout(() => {
+            this._tradeDebounce = false;
+        }, 500);
 
         const player = this.currentPlayer;
         if (player.tokens < 3) return;
@@ -431,7 +456,9 @@ const Game = {
         let insertIdx = player.timeline.findIndex(c => c.year >= card.year);
         if (insertIdx === -1) insertIdx = player.timeline.length;
         player.timeline.splice(insertIdx, 0, {
-            title: card.title, artist: card.artist, year: card.year,
+            title: card.title,
+            artist: card.artist,
+            year: card.year,
         });
         player.score = player.timeline.length;
 
@@ -549,7 +576,7 @@ const Game = {
         const artist = document.getElementById('reveal-song-artist');
         const year = document.getElementById('reveal-song-year');
 
-        const isPositive = (result === 'no_challenge_correct' || result === 'original_wins');
+        const isPositive = result === 'no_challenge_correct' || result === 'original_wins';
 
         switch (result) {
             case 'no_challenge_correct':
@@ -666,12 +693,16 @@ const Game = {
 
         const scoresEl = document.getElementById('final-scores');
         const sorted = [...this.players].sort((a, b) => b.score - a.score);
-        scoresEl.innerHTML = sorted.map(p => `
+        scoresEl.innerHTML = sorted
+            .map(
+                p => `
             <div class="final-score-row ${p === winner ? 'winner' : ''}">
                 <span class="final-score-name">${this.escapeHtml(p.name)}</span>
                 <span class="final-score-count">${p.score} kort \u00B7 \u{1F536}${p.tokens}</span>
             </div>
-        `).join('');
+        `,
+            )
+            .join('');
 
         App.showScreen('screen-winner');
     },
@@ -682,12 +713,16 @@ const Game = {
 
     renderScores() {
         const el = document.getElementById('game-scores');
-        el.innerHTML = this.players.map((p, i) => `
+        el.innerHTML = this.players
+            .map(
+                (p, i) => `
             <div class="score-chip ${i === this.currentPlayerIndex ? 'active' : ''}">
                 ${this.escapeHtml(p.name)}: ${p.score}
                 <span class="token-count"><span class="token-icon">\u{1F536}</span>${p.tokens}</span>
             </div>
-        `).join('');
+        `,
+            )
+            .join('');
     },
 
     renderCurrentTurn() {
@@ -701,9 +736,14 @@ const Game = {
         const timeline = player.timeline;
         let html = '';
         // Normalize to Set
-        const disabledSet = disabledDropIndices instanceof Set
-            ? disabledDropIndices
-            : (disabledDropIndices != null ? new Set([disabledDropIndices]) : new Set());
+        /* eslint-disable eqeqeq -- intentional null/undefined check */
+        const disabledSet =
+            disabledDropIndices instanceof Set
+                ? disabledDropIndices
+                : disabledDropIndices != null
+                  ? new Set([disabledDropIndices])
+                  : new Set();
+        /* eslint-enable eqeqeq */
 
         if (showDropZones) {
             const isDisabled = disabledSet.has(0);
@@ -763,7 +803,9 @@ const Game = {
         if (!this.isWaitingForPlacement) return;
         if (this._dropDebounce) return;
         this._dropDebounce = true;
-        setTimeout(() => { this._dropDebounce = false; }, 300);
+        setTimeout(() => {
+            this._dropDebounce = false;
+        }, 300);
         this.selectedDropIndex = index;
         this.showPlacementConfirmation(index);
     },
@@ -805,7 +847,12 @@ const Game = {
     },
 
     showPlacementConfirmation(index) {
-        this._showPlacementDialog(index, this.currentPlayer.timeline, 'Game.cancelPlacement()', 'Game.confirmPlacement()');
+        this._showPlacementDialog(
+            index,
+            this.currentPlayer.timeline,
+            'Game.cancelPlacement()',
+            'Game.confirmPlacement()',
+        );
     },
 
     cancelPlacement() {
@@ -878,8 +925,8 @@ const Game = {
         const challengeBtn = document.getElementById('btn-challenge');
         if (challengeBtn) {
             const alreadyChallenging = new Set(cp.challengers.map(c => c.playerIndex));
-            const eligiblePlayers = this.players.filter((p, i) =>
-                i !== cp.originalPlayerIndex && !alreadyChallenging.has(i) && p.tokens >= 1
+            const eligiblePlayers = this.players.filter(
+                (p, i) => i !== cp.originalPlayerIndex && !alreadyChallenging.has(i) && p.tokens >= 1,
             );
 
             // Also need available drop positions on the timeline
@@ -891,7 +938,7 @@ const Game = {
             });
             const availablePositions = totalDropZones - usedPositions.size;
 
-            challengeBtn.style.display = (eligiblePlayers.length > 0 && availablePositions > 0) ? '' : 'none';
+            challengeBtn.style.display = eligiblePlayers.length > 0 && availablePositions > 0 ? '' : 'none';
         }
 
         // Clear game actions (skip/trade buttons)
@@ -995,7 +1042,10 @@ const Game = {
         const cp = this.challengePhase;
         if (cp && cp.challengers.length > 0) {
             const current = cp.challengers[cp.currentChallengerIdx];
-            this.players[current.playerIndex].tokens = Math.min(this.MAX_TOKENS, this.players[current.playerIndex].tokens + 1);
+            this.players[current.playerIndex].tokens = Math.min(
+                this.MAX_TOKENS,
+                this.players[current.playerIndex].tokens + 1,
+            );
             cp.challengers.splice(cp.currentChallengerIdx, 1);
             if (cp.currentChallengerIdx >= cp.challengers.length && cp.challengers.length > 0) {
                 cp.currentChallengerIdx = cp.challengers.length - 1;
@@ -1011,7 +1061,10 @@ const Game = {
         const cp = this.challengePhase;
         if (cp && cp.challengers.length > 0) {
             const current = cp.challengers[cp.currentChallengerIdx];
-            this.players[current.playerIndex].tokens = Math.min(this.MAX_TOKENS, this.players[current.playerIndex].tokens + 1);
+            this.players[current.playerIndex].tokens = Math.min(
+                this.MAX_TOKENS,
+                this.players[current.playerIndex].tokens + 1,
+            );
             cp.challengers.splice(cp.currentChallengerIdx, 1);
             if (cp.currentChallengerIdx >= cp.challengers.length && cp.challengers.length > 0) {
                 cp.currentChallengerIdx = cp.challengers.length - 1;
@@ -1122,14 +1175,21 @@ const Game = {
         }
         if (this._dropDebounce) return;
         this._dropDebounce = true;
-        setTimeout(() => { this._dropDebounce = false; }, 300);
+        setTimeout(() => {
+            this._dropDebounce = false;
+        }, 300);
         this.selectedDropIndex = index;
         this.showChallengerPlacementConfirmation(index);
     },
 
     showChallengerPlacementConfirmation(index) {
         const originalPlayer = this.players[this.challengePhase.originalPlayerIndex];
-        this._showPlacementDialog(index, originalPlayer.timeline, 'Game.cancelChallengerPlacement()', 'Game.confirmChallengerPlacement()');
+        this._showPlacementDialog(
+            index,
+            originalPlayer.timeline,
+            'Game.cancelChallengerPlacement()',
+            'Game.confirmChallengerPlacement()',
+        );
     },
 
     cancelChallengerPlacement() {
@@ -1175,7 +1235,9 @@ const Game = {
 
         const originalPlayer = this.players[cp.originalPlayerIndex];
         const originalCorrect = this.isPlacementCorrect(
-            originalPlayer.timeline, this.currentSong, cp.originalDropIndex
+            originalPlayer.timeline,
+            this.currentSong,
+            cp.originalDropIndex,
         );
 
         const card = {
@@ -1209,7 +1271,9 @@ const Game = {
                 for (const challenger of cp.challengers) {
                     if (challenger.dropIndex === null) continue; // Skip incomplete placements
                     const challengerCorrect = this.isPlacementCorrect(
-                        originalPlayer.timeline, this.currentSong, challenger.dropIndex
+                        originalPlayer.timeline,
+                        this.currentSong,
+                        challenger.dropIndex,
                     );
                     if (challengerCorrect) {
                         winnerChallenger = challenger;
@@ -1236,7 +1300,6 @@ const Game = {
         this.saveState();
         this.showReveal(result);
     },
-
 
     // =============================================
     // State Persistence
@@ -1272,15 +1335,22 @@ const Game = {
             if (typeof state.currentPlayerIndex !== 'number') return false;
             if (state.currentPlayerIndex < 0 || state.currentPlayerIndex >= state.players.length) return false;
             if (typeof state.cardsToWin !== 'number' || state.cardsToWin < 1) return false;
-            if (!state.players.every(p =>
-                typeof p.name === 'string' && p.name.length > 0 &&
-                Array.isArray(p.timeline) &&
-                typeof p.score === 'number'
-            )) return false;
+            if (
+                !state.players.every(
+                    p =>
+                        typeof p.name === 'string' &&
+                        p.name.length > 0 &&
+                        Array.isArray(p.timeline) &&
+                        typeof p.score === 'number',
+                )
+            )
+                return false;
 
             this.players = state.players;
             // Recalculate scores from timeline length to prevent desync
-            this.players.forEach(p => { p.score = p.timeline.length; });
+            this.players.forEach(p => {
+                p.score = p.timeline.length;
+            });
             this.currentPlayerIndex = state.currentPlayerIndex;
             this.cardsToWin = state.cardsToWin;
             this.usedSongs = new Set(Array.isArray(state.usedSongs) ? state.usedSongs : []);
@@ -1301,7 +1371,12 @@ const Game = {
                 const cp = this.challengePhase;
                 cp.challengers = [];
                 if (cp.challengerIndex !== null && cp.challengerIndex !== undefined) {
-                    cp.challengers.push({ playerIndex: cp.challengerIndex, dropIndex: cp.challengerDropIndex != null ? cp.challengerDropIndex : null });
+                    /* eslint-disable eqeqeq -- intentional null/undefined check */
+                    cp.challengers.push({
+                        playerIndex: cp.challengerIndex,
+                        dropIndex: cp.challengerDropIndex != null ? cp.challengerDropIndex : null,
+                    });
+                    /* eslint-enable eqeqeq */
                 }
                 cp.currentChallengerIdx = Math.max(0, cp.challengers.length - 1);
                 cp.winnerChallengerPlayerIndex = null;
@@ -1412,14 +1487,18 @@ const Game = {
             return;
         }
 
-        container.innerHTML = player.timeline.map((card, ci) => `
+        container.innerHTML = player.timeline
+            .map(
+                (card, ci) => `
             <div class="gm-card">
                 <span class="gm-card-year">${card.year}</span>
                 <span class="gm-card-title">${this.escapeHtml(card.title)}</span>
                 <button class="gm-card-edit" onclick="Game.gmStartEditCard(${playerIndex}, ${ci})" title="Rediger">✏️</button>
                 <button class="gm-card-remove" onclick="Game.gmRemoveCard(${playerIndex}, ${ci})">&times;</button>
             </div>
-        `).join('');
+        `,
+            )
+            .join('');
     },
 
     gmMovePlayer(playerIndex, direction) {
@@ -1520,7 +1599,10 @@ const Game = {
                 // Refund tokens for all challengers
                 cp.challengers.forEach(c => {
                     if (c.playerIndex < this.players.length) {
-                        this.players[c.playerIndex].tokens = Math.min(this.MAX_TOKENS, this.players[c.playerIndex].tokens + 1);
+                        this.players[c.playerIndex].tokens = Math.min(
+                            this.MAX_TOKENS,
+                            this.players[c.playerIndex].tokens + 1,
+                        );
                     }
                 });
                 this.challengePhase = null;
@@ -1708,22 +1790,26 @@ const Game = {
 
         const q = query.toLowerCase();
         const db = this._gameDatabase || (typeof SONGS_DATABASE !== 'undefined' ? SONGS_DATABASE : []);
-        this._searchResults = db.filter(s =>
-            s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q)
-        ).slice(0, 10);
+        this._searchResults = db
+            .filter(s => s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q))
+            .slice(0, 10);
 
         if (this._searchResults.length === 0) {
             resultsEl.innerHTML = '<p class="gm-empty">Ingen treff</p>';
             return;
         }
 
-        resultsEl.innerHTML = this._searchResults.map((song, i) => `
+        resultsEl.innerHTML = this._searchResults
+            .map(
+                (song, i) => `
             <div class="gm-search-result" onclick="Game.gmAddSearchedCardByIndex(${playerIndex}, ${i})">
                 <span class="gm-search-year">${song.year}</span>
                 <span class="gm-search-title">${this.escapeHtml(song.title)}</span>
                 <span class="gm-search-artist">${this.escapeHtml(song.artist)}</span>
             </div>
-        `).join('');
+        `,
+            )
+            .join('');
     },
 
     gmAddSearchedCardByIndex(playerIndex, songIndex) {
@@ -1780,7 +1866,12 @@ const Game = {
     },
 
     escapeHtml(str) {
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     },
 
     // Scroll-lock: prevent background scrolling when overlays are open
@@ -1801,7 +1892,7 @@ const Game = {
 };
 
 // Keyboard shortcuts (M9: Escape to close overlays/panels)
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         // Close game master panel if open
         if (document.getElementById('gm-panel').classList.contains('active')) {
@@ -1821,6 +1912,6 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Spotify IFrame API callback
-window.onSpotifyIframeApiReady = (IFrameAPI) => {
+window.onSpotifyIframeApiReady = IFrameAPI => {
     Game.spotifyAPI = IFrameAPI;
 };

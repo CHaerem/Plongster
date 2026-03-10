@@ -1,111 +1,149 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-    <meta charset="UTF-8">
-    <title>Spotify Control Test</title>
-    <style>
-        body { background: #111; color: #eee; font-family: sans-serif; padding: 20px; }
-        button { padding: 10px 20px; margin: 5px; font-size: 16px; cursor: pointer; }
-        .hidden-embed { position: absolute; left: -9999px; width: 300px; height: 80px; }
-        .log { background: #222; padding: 10px; margin-top: 10px; font-family: monospace; font-size: 13px; max-height: 300px; overflow-y: auto; }
-        .log div { padding: 2px 0; }
-    </style>
-</head>
-<body>
-    <h1>Spotify Programmatic Control Test</h1>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Spotify Control Test</title>
+        <style>
+            body {
+                background: #111;
+                color: #eee;
+                font-family: sans-serif;
+                padding: 20px;
+            }
+            button {
+                padding: 10px 20px;
+                margin: 5px;
+                font-size: 16px;
+                cursor: pointer;
+            }
+            .hidden-embed {
+                position: absolute;
+                left: -9999px;
+                width: 300px;
+                height: 80px;
+            }
+            .log {
+                background: #222;
+                padding: 10px;
+                margin-top: 10px;
+                font-family: monospace;
+                font-size: 13px;
+                max-height: 300px;
+                overflow-y: auto;
+            }
+            .log div {
+                padding: 2px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Spotify Programmatic Control Test</h1>
 
-    <h3>Step 1: Embed (visible for activation)</h3>
-    <div id="embed-container"></div>
+        <h3>Step 1: Embed (visible for activation)</h3>
+        <div id="embed-container"></div>
 
-    <h3>Step 2: Test programmatic control</h3>
-    <button onclick="testPlay()">play()</button>
-    <button onclick="testPause()">pause()</button>
-    <button onclick="testResume()">resume()</button>
-    <button onclick="testToggle()">togglePlay()</button>
-    <button onclick="testLoad1()">loadUri (Song A)</button>
-    <button onclick="testLoad2()">loadUri (Song B)</button>
-    <button onclick="testLoad3()">loadUri (Song C)</button>
-    <button onclick="testLoadAndPlay()">loadUri + play(500ms)</button>
+        <h3>Step 2: Test programmatic control</h3>
+        <button onclick="testPlay()">play()</button>
+        <button onclick="testPause()">pause()</button>
+        <button onclick="testResume()">resume()</button>
+        <button onclick="testToggle()">togglePlay()</button>
+        <button onclick="testLoad1()">loadUri (Song A)</button>
+        <button onclick="testLoad2()">loadUri (Song B)</button>
+        <button onclick="testLoad3()">loadUri (Song C)</button>
+        <button onclick="testLoadAndPlay()">loadUri + play(500ms)</button>
 
-    <h3>Step 3: Test hidden</h3>
-    <button onclick="hideEmbed()">Hide embed (off-screen)</button>
-    <button onclick="showEmbed()">Show embed</button>
+        <h3>Step 3: Test hidden</h3>
+        <button onclick="hideEmbed()">Hide embed (off-screen)</button>
+        <button onclick="showEmbed()">Show embed</button>
 
-    <div class="log" id="log"></div>
+        <div class="log" id="log"></div>
 
-    <script>
-        let ctrl = null;
-        function log(msg) {
-            const el = document.getElementById('log');
-            const d = document.createElement('div');
-            d.textContent = new Date().toLocaleTimeString() + ' - ' + msg;
-            el.appendChild(d);
-            el.scrollTop = el.scrollHeight;
-            console.log(msg);
-        }
+        <script>
+            let ctrl = null;
+            function log(msg) {
+                const el = document.getElementById('log');
+                const d = document.createElement('div');
+                d.textContent = new Date().toLocaleTimeString() + ' - ' + msg;
+                el.appendChild(d);
+                el.scrollTop = el.scrollHeight;
+                console.log(msg);
+            }
 
-        window.onSpotifyIframeApiReady = (IFrameAPI) => {
-            log('Spotify API ready');
-            IFrameAPI.createController(document.getElementById('embed-container'), {
-                width: '100%', height: 152,
-                uri: 'spotify:track:4PTG3Z6ehGkBFwjybzWkR8', theme: 0
-            }, (c) => {
-                ctrl = c;
-                log('Controller created - click play in embed first to activate');
-                c.addListener('playback_update', (e) => {
-                    if (e.data.isPaused === false && e.data.position < 500) {
-                        log('Playing: position=' + Math.round(e.data.position));
-                    }
-                });
-            });
-        };
+            window.onSpotifyIframeApiReady = IFrameAPI => {
+                log('Spotify API ready');
+                IFrameAPI.createController(
+                    document.getElementById('embed-container'),
+                    {
+                        width: '100%',
+                        height: 152,
+                        uri: 'spotify:track:4PTG3Z6ehGkBFwjybzWkR8',
+                        theme: 0,
+                    },
+                    c => {
+                        ctrl = c;
+                        log('Controller created - click play in embed first to activate');
+                        c.addListener('playback_update', e => {
+                            if (e.data.isPaused === false && e.data.position < 500) {
+                                log('Playing: position=' + Math.round(e.data.position));
+                            }
+                        });
+                    },
+                );
+            };
 
-        function testPlay() {
-            if (!ctrl) return log('No controller');
-            ctrl.play(); log('play() called');
-        }
-        function testPause() {
-            if (!ctrl) return log('No controller');
-            ctrl.pause(); log('pause() called');
-        }
-        function testResume() {
-            if (!ctrl) return log('No controller');
-            ctrl.resume(); log('resume() called');
-        }
-        function testToggle() {
-            if (!ctrl) return log('No controller');
-            ctrl.togglePlay(); log('togglePlay() called');
-        }
-        function testLoad1() {
-            if (!ctrl) return log('No controller');
-            ctrl.loadUri('spotify:track:7tFiyTwD0nx5a1eklYtX2J');
-            log('loadUri Song A called');
-        }
-        function testLoad2() {
-            if (!ctrl) return log('No controller');
-            ctrl.loadUri('spotify:track:3n3Ppam7vgaVa1iaRUc9Lp');
-            log('loadUri Song B called');
-        }
-        function testLoad3() {
-            if (!ctrl) return log('No controller');
-            ctrl.loadUri('spotify:track:60nZcImufyMA1MKQY3dcCH');
-            log('loadUri Song C called');
-        }
-        function testLoadAndPlay() {
-            if (!ctrl) return log('No controller');
-            ctrl.loadUri('spotify:track:0VjIjW4GlUZAMYd2vXMi3b');
-            log('loadUri called, waiting 500ms...');
-            setTimeout(() => { ctrl.play(); log('play() called after 500ms'); }, 500);
-        }
-        function hideEmbed() {
-            document.getElementById('embed-container').classList.add('hidden-embed');
-            log('Embed moved off-screen');
-        }
-        function showEmbed() {
-            document.getElementById('embed-container').classList.remove('hidden-embed');
-            log('Embed shown');
-        }
-    </script>
-    <script src="https://open.spotify.com/embed/iframe-api/v1"></script>
-</body>
+            function testPlay() {
+                if (!ctrl) return log('No controller');
+                ctrl.play();
+                log('play() called');
+            }
+            function testPause() {
+                if (!ctrl) return log('No controller');
+                ctrl.pause();
+                log('pause() called');
+            }
+            function testResume() {
+                if (!ctrl) return log('No controller');
+                ctrl.resume();
+                log('resume() called');
+            }
+            function testToggle() {
+                if (!ctrl) return log('No controller');
+                ctrl.togglePlay();
+                log('togglePlay() called');
+            }
+            function testLoad1() {
+                if (!ctrl) return log('No controller');
+                ctrl.loadUri('spotify:track:7tFiyTwD0nx5a1eklYtX2J');
+                log('loadUri Song A called');
+            }
+            function testLoad2() {
+                if (!ctrl) return log('No controller');
+                ctrl.loadUri('spotify:track:3n3Ppam7vgaVa1iaRUc9Lp');
+                log('loadUri Song B called');
+            }
+            function testLoad3() {
+                if (!ctrl) return log('No controller');
+                ctrl.loadUri('spotify:track:60nZcImufyMA1MKQY3dcCH');
+                log('loadUri Song C called');
+            }
+            function testLoadAndPlay() {
+                if (!ctrl) return log('No controller');
+                ctrl.loadUri('spotify:track:0VjIjW4GlUZAMYd2vXMi3b');
+                log('loadUri called, waiting 500ms...');
+                setTimeout(() => {
+                    ctrl.play();
+                    log('play() called after 500ms');
+                }, 500);
+            }
+            function hideEmbed() {
+                document.getElementById('embed-container').classList.add('hidden-embed');
+                log('Embed moved off-screen');
+            }
+            function showEmbed() {
+                document.getElementById('embed-container').classList.remove('hidden-embed');
+                log('Embed shown');
+            }
+        </script>
+        <script src="https://open.spotify.com/embed/iframe-api/v1"></script>
+    </body>
 </html>
