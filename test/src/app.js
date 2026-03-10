@@ -1,21 +1,20 @@
 // App controller — screen management, setup, playlist loading, genre filtering
 
-import { getSongs, setSongs, resetSongs as resetSongsStore, getAllSongs } from './songs.js';
-import { getAnonymousToken } from './spotify/auth.js';
-import { extractPlaylistId, fetchViaWebAPI, fetchViaEmbedScraping } from './spotify/playlist.js';
+import { initSongs, getSongs, setSongs, resetSongs as resetSongsStore, getAllSongs } from './songs.js';
+import { extractPlaylistId } from './spotify/playlist.js';
 import { SPOTIFY_CONFIG } from './spotify/config.js';
 import { isLoggedIn, getUsername, startLogin, logout } from './spotify/oauth.js';
 import { fetchUserPlaylists, fetchPlaylistTracks } from './spotify/api.js';
 
 export const App = {
     winCount: 10,
-    defaultSongCount: getAllSongs().length,
     _loadingAbort: null,
     _loadGeneration: 0,
     _selectedGenres: new Set(),
     _usingCustomPlaylist: false,
     _playlistOffset: 0,
     _playlistTotal: 0,
+    _allPlaylists: [],
 
     _genreConfig: [
         { id: 'pop', label: 'Pop', icon: '🎤' },
@@ -25,7 +24,8 @@ export const App = {
         { id: 'norsk', label: 'Norsk', icon: '🇳🇴' },
     ],
 
-    init() {
+    async init() {
+        await initSongs();
         document.getElementById('win-count').textContent = this.winCount;
 
         const savedUrl = localStorage.getItem('hitster-playlist-url');
@@ -124,6 +124,12 @@ export const App = {
             return;
         }
 
+        // Playlist import requires Spotify login
+        if (!isLoggedIn()) {
+            this._showSongStatus('Logg inn med Spotify for å importere spillelister.', 'error');
+            return;
+        }
+
         if (this._loadingAbort) this._loadingAbort.abort();
         this._loadingAbort = new AbortController();
         const generation = ++this._loadGeneration;
@@ -135,58 +141,20 @@ export const App = {
         badge.textContent = 'Laster...';
         badge.className = 'song-source-badge loading';
         if (loadBtn) loadBtn.disabled = true;
-        this._showSongStatus('Kobler til Spotify...', 'loading');
+        this._showSongStatus('Henter sanger fra Spotify...', 'loading');
 
         try {
             const signal = this._loadingAbort.signal;
 
-            let songs = null;
-            let playlistName = 'Spilleliste';
-
-            // Try authenticated API first if logged in
-            if (isLoggedIn()) {
-                try {
-                    this._showSongStatus('Henter sanger fra Spotify...', 'loading');
-                    const result = await fetchPlaylistTracks(playlistId, signal, (done, total) => {
-                        this._showSongStatus(`Henter sanger... (${done}/${total})`, 'loading');
-                        badge.textContent = `${done}/${total}...`;
-                    });
-                    songs = result.songs;
-                    playlistName = result.name;
-                } catch (authErr) {
-                    if (authErr.name === 'AbortError') throw authErr;
-                    console.warn('Authenticated API failed, falling back:', authErr.message);
-                }
-            }
-
-            // Fallback: anonymous token + Web API
-            if (!songs || songs.length === 0) {
-                const token = await getAnonymousToken(signal);
-                if (signal.aborted) return;
-
-                try {
-                    this._showSongStatus('Henter sanger fra Spotify...', 'loading');
-                    const apiResult = await fetchViaWebAPI(playlistId, token, signal);
-                    songs = apiResult.songs;
-                    playlistName = apiResult.name;
-                } catch (apiErr) {
-                    if (apiErr.name === 'AbortError') throw apiErr;
-                    console.warn('Web API failed, falling back to embed scraping:', apiErr.message);
-                }
-            }
-
-            // Fallback: embed scraping
-            if (!songs || songs.length === 0) {
-                this._showSongStatus('Henter spilleliste...', 'loading');
-                const embedResult = await fetchViaEmbedScraping(playlistId, signal, (done, total) => {
-                    this._showSongStatus(`Henter sanger... (${done}/${total})`, 'loading');
-                    badge.textContent = `${done}/${total}...`;
-                });
-                songs = embedResult.songs;
-                playlistName = embedResult.name || playlistName;
-            }
+            const result = await fetchPlaylistTracks(playlistId, signal, (done, total) => {
+                this._showSongStatus(`Henter sanger... (${done}/${total})`, 'loading');
+                badge.textContent = `${done}/${total}...`;
+            });
 
             if (signal.aborted) return;
+
+            const songs = result.songs;
+            const playlistName = result.name;
 
             if (!songs || songs.length === 0) {
                 throw new Error('Ingen sanger med utgivelsesår funnet i spillelisten.');
@@ -277,46 +245,43 @@ export const App = {
         if (!container || !grid) return;
 
         this._playlistOffset = 0;
+        this._allPlaylists = [];
         container.style.display = '';
-        grid.innerHTML = '<p style="color:var(--text-dim);padding:8px;">Laster spillelister...</p>';
+        grid.innerHTML = '<p class="playlist-status">Laster spillelister...</p>';
+
+        const searchInput = document.getElementById('playlist-search');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.oninput = () => this._filterPlaylists();
+        }
 
         try {
-            const result = await fetchUserPlaylists(0, 20);
-            this._playlistOffset = 20;
+            const result = await fetchUserPlaylists(0, 50);
+            this._playlistOffset = 50;
             this._playlistTotal = result.total;
-            grid.innerHTML = '';
+            this._allPlaylists = result.items;
 
-            if (result.items.length === 0) {
-                grid.innerHTML = '<p style="color:var(--text-dim);padding:8px;">Ingen spillelister funnet.</p>';
-                return;
-            }
-
-            for (const pl of result.items) {
-                grid.appendChild(this._createPlaylistCard(pl));
-            }
+            this._renderPlaylistGrid();
 
             const loadMoreBtn = document.getElementById('spotify-load-more');
             if (loadMoreBtn) {
                 loadMoreBtn.style.display = result.hasMore ? '' : 'none';
             }
         } catch (e) {
-            grid.innerHTML = `<p style="color:var(--error);padding:8px;">${e.message}</p>`;
+            grid.innerHTML = `<p class="playlist-status playlist-error">${this._escapeAttr(e.message)}</p>`;
         }
     },
 
     async loadMorePlaylists() {
-        const grid = document.getElementById('spotify-playlist-grid');
         const loadMoreBtn = document.getElementById('spotify-load-more');
-        if (!grid) return;
 
         try {
             if (loadMoreBtn) loadMoreBtn.disabled = true;
-            const result = await fetchUserPlaylists(this._playlistOffset, 20);
-            this._playlistOffset += 20;
+            const result = await fetchUserPlaylists(this._playlistOffset, 50);
+            this._playlistOffset += 50;
 
-            for (const pl of result.items) {
-                grid.appendChild(this._createPlaylistCard(pl));
-            }
+            this._allPlaylists = this._allPlaylists.concat(result.items);
+            this._renderPlaylistGrid();
 
             if (loadMoreBtn) {
                 loadMoreBtn.style.display = result.hasMore ? '' : 'none';
@@ -324,6 +289,41 @@ export const App = {
             }
         } catch (e) {
             if (loadMoreBtn) loadMoreBtn.disabled = false;
+        }
+    },
+
+    _filterPlaylists() {
+        this._renderPlaylistGrid();
+    },
+
+    _getFilteredPlaylists() {
+        const searchInput = document.getElementById('playlist-search');
+        const query = (searchInput?.value || '').toLowerCase().trim();
+        if (!query) return this._allPlaylists;
+        return this._allPlaylists.filter(
+            p => p.name.toLowerCase().includes(query) || p.owner.toLowerCase().includes(query),
+        );
+    },
+
+    _renderPlaylistGrid() {
+        const grid = document.getElementById('spotify-playlist-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        const filtered = this._getFilteredPlaylists();
+
+        if (this._allPlaylists.length === 0) {
+            grid.innerHTML = '<p class="playlist-status">Ingen spillelister funnet.</p>';
+            return;
+        }
+
+        if (filtered.length === 0) {
+            grid.innerHTML = '<p class="playlist-status">Ingen treff.</p>';
+            return;
+        }
+
+        for (const pl of filtered) {
+            grid.appendChild(this._createPlaylistCard(pl));
         }
     },
 
@@ -532,6 +532,27 @@ export const App = {
 
     showSetup() {
         this.showScreen('screen-setup');
+        this._restorePlayerNames();
+    },
+
+    _restorePlayerNames() {
+        const saved = this._getSavedPlayerNames();
+        if (saved.length < 2) return;
+
+        const list = document.getElementById('player-list');
+        const inputs = list.querySelectorAll('.player-name-input');
+
+        // Fill existing inputs
+        inputs.forEach((input, i) => {
+            if (i < saved.length) input.value = saved[i];
+        });
+
+        // Add extra rows if saved has more players
+        for (let i = inputs.length; i < saved.length && i < 10; i++) {
+            this.addPlayer();
+            const newInputs = list.querySelectorAll('.player-name-input');
+            newInputs[i].value = saved[i];
+        }
     },
 
     async startGame() {
@@ -551,9 +572,44 @@ export const App = {
             return;
         }
 
+        // Remember player names for next session
+        try {
+            localStorage.setItem('hitster-player-names', JSON.stringify(names));
+        } catch (e) {}
+
         window.Game.init(names, this.winCount);
         this.showScreen('screen-game');
         window.Game.showPassPhone();
+    },
+
+    quickStart() {
+        const savedNames = this._getSavedPlayerNames();
+        const names = savedNames.length >= 2 ? savedNames.slice(0, 2) : ['Spiller 1', 'Spiller 2'];
+
+        if (getSongs().length === 0) {
+            alert('Ingen sanger lastet!');
+            return;
+        }
+
+        try {
+            localStorage.setItem('hitster-player-names', JSON.stringify(names));
+        } catch (e) {}
+
+        window.Game.init(names, this.winCount);
+        this.showScreen('screen-game');
+        window.Game.showPassPhone();
+    },
+
+    _getSavedPlayerNames() {
+        try {
+            const data = localStorage.getItem('hitster-player-names');
+            if (!data) return [];
+            const names = JSON.parse(data);
+            if (Array.isArray(names) && names.every(n => typeof n === 'string' && n.length > 0)) {
+                return names;
+            }
+        } catch (e) {}
+        return [];
     },
 
     getPlayerNames() {

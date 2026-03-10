@@ -3,6 +3,7 @@
 
 import { SPOTIFY_CONFIG } from './config.js';
 import { getAccessToken } from './oauth.js';
+import { extractYear, isValidSong } from '../utils.js';
 
 /**
  * Fetch the user's playlists (paginated).
@@ -60,7 +61,7 @@ export async function fetchPlaylistTracks(playlistId, signal, onProgress) {
 
     // Fetch tracks with pagination
     const songs = [];
-    let apiUrl = `${SPOTIFY_CONFIG.apiBase}/playlists/${playlistId}/tracks?limit=100&fields=items(track(id,name,artists(name),album(release_date,images))),next,total`;
+    let apiUrl = `${SPOTIFY_CONFIG.apiBase}/playlists/${playlistId}/tracks?limit=100&fields=items(track(id,name,artists(name),album(release_date,release_date_precision,images))),next,total`;
     let pages = 0;
     const MAX_PAGES = 10;
     let total = 0;
@@ -88,17 +89,17 @@ export async function fetchPlaylistTracks(playlistId, signal, onProgress) {
             const track = item?.track;
             if (!track || !track.id) continue;
 
-            const releaseDate = track.album?.release_date || '';
-            const year = parseInt(releaseDate.substring(0, 4));
-            if (!year || isNaN(year)) continue;
+            const year = extractYear(track.album?.release_date, track.album?.release_date_precision);
+            if (!year) continue;
 
-            songs.push({
+            const song = {
                 title: track.name,
                 artist: track.artists.map(a => a.name).join(' & '),
                 year,
                 spotifyId: track.id,
                 coverUrl: track.album?.images?.[1]?.url || track.album?.images?.[0]?.url || null,
-            });
+            };
+            if (isValidSong(song)) songs.push(song);
         }
 
         if (onProgress) onProgress(songs.length, total);

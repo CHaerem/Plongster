@@ -43,6 +43,7 @@
                     </p>
                 </div>
                 <button class="btn btn-primary btn-large" onclick="App.showSetup()">Start spill</button>
+                <button class="btn btn-ghost" onclick="App.quickStart()">Hurtigstart (2 spillere)</button>
             </div>
         </div>
 
@@ -134,6 +135,14 @@
                         </div>
                     </div>
                     <div id="spotify-playlists" class="spotify-playlists" style="display: none">
+                        <input
+                            type="text"
+                            id="playlist-search"
+                            class="playlist-search"
+                            placeholder="Søk i spillelister..."
+                            autocomplete="off"
+                            spellcheck="false"
+                        />
                         <div id="spotify-playlist-grid" class="spotify-playlist-grid"></div>
                         <button
                             id="spotify-load-more"
@@ -178,14 +187,15 @@
         <div id="screen-game" class="screen">
             <div class="game-header">
                 <div class="game-header-top">
-                    <div class="game-scores" id="game-scores"></div>
+                    <div class="game-scores" id="game-scores" role="status" aria-label="Poeng"></div>
                     <button class="btn-hamburger" onclick="Game.toggleMenu()" aria-label="Spillkontroll-meny">
                         <span></span>
                         <span></span>
                         <span></span>
                     </button>
                 </div>
-                <div class="current-turn" id="current-turn"></div>
+                <div class="current-turn" id="current-turn" role="status" aria-live="polite"></div>
+                <div class="game-info-bar" id="game-info-bar"></div>
             </div>
 
             <div class="game-area">
@@ -233,7 +243,7 @@
                 <!-- Timeline -->
                 <div class="timeline-container">
                     <h3 class="timeline-title" id="timeline-title">Din tidslinje</h3>
-                    <div class="timeline" id="timeline"></div>
+                    <div class="timeline" id="timeline" role="list" aria-label="Tidslinje"></div>
                 </div>
             </div>
 
@@ -263,6 +273,10 @@
                             ⚔️ Utfordre (1 🔶)
                         </button>
                     </div>
+                    <p class="help-tooltip" id="help-tooltip-challenge">
+                        Utfordre = en annen spiller satser 1 🔶 på at de kan plassere sangen riktig. Tittel-claim gir +1
+                        🔶 hvis du vet tittel og artist.
+                    </p>
                 </div>
 
                 <!-- Phase 2: Result — shown after resolve -->
@@ -271,6 +285,7 @@
                     <h2 id="reveal-title"></h2>
                     <p id="reveal-subtitle" class="reveal-subtitle"></p>
                     <div class="reveal-song-info" id="reveal-song-info">
+                        <img id="reveal-song-cover" class="reveal-song-cover" alt="" style="display: none" />
                         <p class="reveal-song-name" id="reveal-song-name"></p>
                         <p class="reveal-song-artist" id="reveal-song-artist"></p>
                         <p class="reveal-song-year-row">
@@ -350,25 +365,24 @@
         <script src="https://open.spotify.com/embed/iframe-api/v1"></script>
         <script type="module" src="main.js"></script>
         <script>
-            // Register Service Worker for PWA
+            // Register Service Worker for PWA — auto-update silently
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker
-                    .register('./sw.js')
-                    .then(reg => {
-                        // Check for updates periodically
-                        reg.addEventListener('updatefound', () => {
-                            const newWorker = reg.installing;
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-                                    // New version available — the stale-while-revalidate strategy
-                                    // ensures the next page load gets fresh assets
-                                    console.log('Hitster oppdatert! Ny versjon klar ved neste lasting.');
-                                }
-                            });
-                        });
-                    })
-                    .catch(err => console.warn('SW registrering feilet:', err));
+                navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW registrering feilet:', err));
             }
         </script>
+
+        <!-- Offline Banner -->
+        <div id="offline-banner" class="offline-banner" style="display: none">
+            Ingen internettforbindelse — noen funksjoner er utilgjengelige
+        </div>
+
+        <!-- Notification Toast -->
+        <div
+            id="notification-toast"
+            class="notification-toast"
+            role="alert"
+            aria-live="assertive"
+            style="display: none"
+        ></div>
     </body>
 </html>

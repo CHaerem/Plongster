@@ -3,7 +3,7 @@
  * Hitster Song Generator
  *
  * Generates songs-data.js from one or more Spotify playlists.
- * Uses Spotify embed pages — no API keys or Developer account needed.
+ * Uses Spotify Web API (client credentials) — requires API credentials.
  *
  * Usage:
  *   node tools/generate-songs.js <playlist_url_or_id> [more_playlists...]
@@ -12,12 +12,19 @@
  *   node tools/generate-songs.js https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M
  *   node tools/generate-songs.js 37i9dQZF1DXcBWIGoYBM5M 37i9dQZF1DX0XUsuxWHRQd
  *   node tools/generate-songs.js --append --genre rock https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M
+ *   node tools/generate-songs.js --validate
  *
  * Options:
- *   --append          Add songs to existing songs.js instead of replacing
- *   --genre <tag>     Tag all songs with this genre (rock/pop/hiphop/electronic/norsk)
+ *   --append          Add songs to existing songs-data.js instead of replacing
+ *   --genre <tag>     Tag all songs with this genre
  *   --json            Output as songs.json (for runtime loading)
  *   --dry-run         Show songs without writing files
+ *   --validate        Check existing songs for stale/unavailable tracks
+ *
+ * Setup:
+ *   cp tools/.env.example tools/.env
+ *   # Edit tools/.env with your Spotify client ID and secret
+ *   # Get credentials at https://developer.spotify.com/dashboard
  */
 
 const fs = require('fs');
@@ -25,130 +32,154 @@ const path = require('path');
 
 const SONGS_JS_PATH = path.join(__dirname, '..', 'songs-data.js');
 const SONGS_JSON_PATH = path.join(__dirname, '..', 'songs.json');
-const BATCH_SIZE = 10; // Parallel embed fetches
-const BATCH_DELAY_MS = 500; // Delay between batches
+const ENV_PATH = path.join(__dirname, '.env');
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const HEADERS = {
-    'User-Agent':
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-};
+// ─── Environment ───
 
-// --- Spotify Embed Scraping ---
-
-function parseNextData(html) {
-    const match = html.match(/<script\s+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-    if (!match) return null;
-    try {
-        return JSON.parse(match[1]);
-    } catch (e) {
-        return null;
-    }
+function loadEnv() {
+    if (!fs.existsSync(ENV_PATH)) return {};
+    const env = {};
+    fs.readFileSync(ENV_PATH, 'utf-8')
+        .split('\n')
+        .forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) return;
+            const [key, ...rest] = trimmed.split('=');
+            env[key.trim()] = rest.join('=').trim();
+        });
+    return env;
 }
 
-async function fetchPlaylistFromEmbed(playlistId) {
-    const url = `https://open.spotify.com/embed/playlist/${playlistId}`;
-    const response = await fetch(url, { headers: HEADERS });
+// ─── Spotify Web API (Client Credentials) ───
 
-    if (!response.ok) {
-        throw new Error(`Failed to fetch playlist embed: ${response.status}`);
-    }
-
-    const html = await response.text();
-    const data = parseNextData(html);
-    if (!data) throw new Error('Could not parse playlist embed page');
-
-    const entity = data?.props?.pageProps?.state?.data?.entity;
-    if (!entity || !entity.trackList) {
-        throw new Error('No track data in playlist embed');
-    }
-
-    const tracks = entity.trackList.map(t => ({
-        spotifyId: t.uri.split(':')[2],
-        title: t.title,
-        artist: t.subtitle,
-    }));
-
-    return { name: entity.name || playlistId, tracks };
-}
-
-async function fetchTrackYear(spotifyId, retries = 2) {
-    for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-            const url = `https://open.spotify.com/embed/track/${spotifyId}`;
-            const response = await fetch(url, { headers: HEADERS });
-            if (!response.ok) {
-                if (attempt < retries) {
-                    await sleep(1000);
-                    continue;
-                }
-                return 0;
-            }
-
-            const html = await response.text();
-            const data = parseNextData(html);
-            if (!data) return 0;
-
-            const entity = data?.props?.pageProps?.state?.data?.entity;
-            if (!entity?.releaseDate?.isoString) return 0;
-
-            return new Date(entity.releaseDate.isoString).getFullYear();
-        } catch (e) {
-            if (attempt < retries) {
-                await sleep(1000);
-                continue;
-            }
-            return 0;
-        }
-    }
-    return 0;
-}
-
-async function enrichTracksWithYears(tracks, _playlistName) {
-    const total = tracks.length;
-    let completed = 0;
-    let skipped = 0;
-
-    // Process in batches
-    for (let i = 0; i < tracks.length; i += BATCH_SIZE) {
-        const batch = tracks.slice(i, i + BATCH_SIZE);
-
-        await Promise.all(
-            batch.map(async track => {
-                track.year = await fetchTrackYear(track.spotifyId);
-                completed++;
-            }),
-        );
-
-        // Progress indicator
-        const pct = Math.round((completed / total) * 100);
-        process.stdout.write(`\r   📅 Release dates: ${completed}/${total} (${pct}%)`);
-
-        // Delay between batches to be gentle
-        if (i + BATCH_SIZE < tracks.length) {
-            await sleep(BATCH_DELAY_MS);
-        }
-    }
-
-    // Filter out tracks without years
-    const withYears = tracks.filter(t => {
-        if (t.year === 0) {
-            skipped++;
-            return false;
-        }
-        return true;
+async function getClientCredentialsToken(clientId, clientSecret) {
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Authorization: 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64'),
+        },
+        body: 'grant_type=client_credentials',
     });
-
-    process.stdout.write('\n');
-    if (skipped > 0) {
-        console.warn(`   ⚠ Skipped ${skipped} tracks without release year`);
+    if (!response.ok) {
+        throw new Error(`Token request failed: ${response.status} ${await response.text()}`);
     }
-
-    return withYears;
+    const data = await response.json();
+    return data.access_token;
 }
 
-// --- Helpers ---
+async function fetchPlaylistViaAPI(playlistId, token) {
+    const fields = 'name,tracks(total)';
+    const url = `https://api.spotify.com/v1/playlists/${playlistId}?fields=${fields}`;
+    const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+        throw new Error(`API playlist fetch failed: ${response.status}`);
+    }
+    return response.json();
+}
+
+async function fetchPlaylistTracksViaAPI(playlistId, token) {
+    const fields = 'items(track(id,name,artists(name),album(release_date,release_date_precision,images))),next,total';
+    let url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?fields=${fields}&limit=100`;
+    const allItems = [];
+
+    while (url) {
+        const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+            throw new Error(`API tracks fetch failed: ${response.status}`);
+        }
+        const data = await response.json();
+        allItems.push(...data.items);
+        url = data.next;
+
+        if (url) {
+            process.stdout.write(`\r   Fetching tracks: ${allItems.length}/${data.total || '?'}`);
+            await sleep(100);
+        }
+    }
+    process.stdout.write(`\r   Fetched ${allItems.length} tracks                    \n`);
+    return allItems;
+}
+
+function apiTrackToSong(item, genre) {
+    const track = item.track;
+    if (!track || !track.id) return null;
+
+    const releaseDate = track.album?.release_date;
+    if (!releaseDate) return null;
+
+    let year;
+    const precision = track.album?.release_date_precision;
+    if (precision === 'day' || precision === 'month') {
+        year = new Date(releaseDate).getFullYear();
+    } else {
+        year = parseInt(releaseDate.substring(0, 4));
+    }
+    if (!year || isNaN(year) || year < 1900 || year > new Date().getFullYear() + 1) return null;
+
+    const song = {
+        title: track.name,
+        artist: track.artists.map(a => a.name).join(', '),
+        year,
+        spotifyId: track.id,
+    };
+
+    const coverUrl = track.album?.images?.[1]?.url || track.album?.images?.[0]?.url || null;
+    if (coverUrl) song.coverUrl = coverUrl;
+
+    if (genre) song.genre = genre;
+    return song;
+}
+
+// ─── Validate ───
+
+async function validateExistingSongs(token) {
+    const songs = loadExistingSongs();
+    if (songs.length === 0) {
+        console.log('No existing songs to validate.');
+        return;
+    }
+
+    console.log(`Validating ${songs.length} songs...\n`);
+    const stale = [];
+    const BATCH_SIZE = 50;
+
+    for (let i = 0; i < songs.length; i += BATCH_SIZE) {
+        const batch = songs.slice(i, i + BATCH_SIZE);
+        const ids = batch.map(s => s.spotifyId).join(',');
+
+        const response = await fetch(`https://api.spotify.com/v1/tracks?ids=${ids}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) {
+            const data = await response.json();
+            data.tracks.forEach((track, idx) => {
+                if (!track) stale.push(batch[idx]);
+            });
+        }
+
+        const pct = Math.round(((i + batch.length) / songs.length) * 100);
+        process.stdout.write(`\r   Checking: ${i + batch.length}/${songs.length} (${pct}%)`);
+        await sleep(100);
+    }
+
+    process.stdout.write('\n\n');
+
+    if (stale.length === 0) {
+        console.log('All songs are valid!');
+    } else {
+        console.log(`Found ${stale.length} stale/unavailable tracks:`);
+        stale.forEach(s => console.log(`  ${s.year} | ${s.title} - ${s.artist} [${s.spotifyId}]`));
+    }
+}
+
+// ─── Helpers ───
 
 function extractPlaylistId(input) {
     const urlMatch = input.match(/playlist[/:]([a-zA-Z0-9]+)/);
@@ -187,7 +218,6 @@ function generateSongsJS(songs) {
     lines.push('// Auto-generated by tools/generate-songs.js');
     lines.push(`// ${songs.length} songs across ${decades.length} decades`);
     lines.push(`// Generated: ${new Date().toISOString().split('T')[0]}`);
-    lines.push('// Can be replaced at runtime by loading a custom JSON song list');
     lines.push('export const SONGS_DATA = [');
 
     for (const decade of decades) {
@@ -197,8 +227,9 @@ function generateSongsJS(songs) {
             const title = song.title.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
             const artist = song.artist.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
             const genrePart = song.genre ? `, genre: "${song.genre}"` : '';
+            const coverPart = song.coverUrl ? `, coverUrl: "${song.coverUrl}"` : '';
             lines.push(
-                `    { title: "${title}", artist: "${artist}", year: ${song.year}, spotifyId: "${song.spotifyId}"${genrePart} },`,
+                `    { title: "${title}", artist: "${artist}", year: ${song.year}, spotifyId: "${song.spotifyId}"${genrePart}${coverPart} },`,
             );
         }
         lines.push('');
@@ -219,7 +250,7 @@ function loadExistingSongs() {
 
     const songs = [];
     const regex =
-        /\{\s*title:\s*"([^"]*)",\s*artist:\s*"([^"]*)",\s*year:\s*(\d+),\s*spotifyId:\s*"([^"]*)"(?:,\s*genre:\s*"([^"]*)")?\s*\}/g;
+        /\{\s*title:\s*"([^"]*)",\s*artist:\s*"([^"]*)",\s*year:\s*(\d+),\s*spotifyId:\s*"([^"]*)"(?:,\s*genre:\s*"([^"]*)")?(?:,\s*coverUrl:\s*"([^"]*)")?\s*\}/g;
     let m;
     while ((m = regex.exec(match[1])) !== null) {
         const song = {
@@ -229,14 +260,48 @@ function loadExistingSongs() {
             spotifyId: m[4],
         };
         if (m[5]) song.genre = m[5];
+        if (m[6]) song.coverUrl = m[6];
         songs.push(song);
     }
     return songs;
 }
 
-// --- Main ---
+// ─── Main ───
+
+const VALID_GENRES = [
+    'pop',
+    'rock',
+    'hiphop',
+    'electronic',
+    'norwegian',
+    'soul',
+    'country',
+    'latin',
+    'metal',
+    'reggae',
+    'jazz',
+    'classical',
+    'disco',
+    'punk',
+    'indie',
+    'kpop',
+    'afrobeats',
+];
 
 async function main() {
+    const env = loadEnv();
+    const clientId = env.SPOTIFY_CLIENT_ID || process.env.SPOTIFY_CLIENT_ID;
+    const clientSecret = env.SPOTIFY_CLIENT_SECRET || process.env.SPOTIFY_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+        console.error('Error: Spotify API credentials required.\n');
+        console.error('Setup:');
+        console.error('  cp tools/.env.example tools/.env');
+        console.error('  # Edit tools/.env with your Spotify client ID and secret');
+        console.error('  # Get credentials at https://developer.spotify.com/dashboard');
+        process.exit(1);
+    }
+
     const args = process.argv.slice(2);
 
     // Parse --genre <tag>
@@ -245,9 +310,8 @@ async function main() {
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--genre' && i + 1 < args.length) {
             genre = args[++i];
-            const validGenres = ['rock', 'pop', 'hiphop', 'electronic', 'norsk'];
-            if (!validGenres.includes(genre)) {
-                console.error(`❌ Invalid genre: "${genre}". Valid: ${validGenres.join(', ')}`);
+            if (!VALID_GENRES.includes(genre)) {
+                console.error(`Invalid genre: "${genre}". Valid: ${VALID_GENRES.join(', ')}`);
                 process.exit(1);
             }
         } else {
@@ -261,65 +325,59 @@ async function main() {
     const appendMode = flags.has('--append');
     const jsonMode = flags.has('--json');
     const dryRun = flags.has('--dry-run');
+    const validateMode = flags.has('--validate');
 
-    if (inputs.length === 0) {
-        console.log(
-            'Usage: node tools/generate-songs.js [--append] [--genre <tag>] [--json] [--dry-run] <playlist_url_or_id> [more...]',
-        );
-        console.log('');
-        console.log(
-            'Example: node tools/generate-songs.js --genre rock https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M',
-        );
-        console.log('');
-        console.log('Options:');
-        console.log('  --append          Add songs to existing songs-data.js instead of replacing');
-        console.log('  --genre <tag>     Tag songs with genre (rock/pop/hiphop/electronic/norsk)');
-        console.log('  --json            Also output songs.json for runtime loading');
-        console.log('  --dry-run         Show songs without writing files');
-        console.log('');
-        console.log('No Spotify Developer account needed.');
+    // Get API token
+    let token;
+    try {
+        token = await getClientCredentialsToken(clientId, clientSecret);
+        console.log('Authenticated with Spotify Web API\n');
+    } catch (e) {
+        console.error(`API authentication failed: ${e.message}`);
         process.exit(1);
     }
 
-    console.log('🎵 Hitster Song Generator\n');
-    console.log('No API keys needed — using Spotify embed pages.\n');
+    // Handle --validate
+    if (validateMode) {
+        await validateExistingSongs(token);
+        return;
+    }
+
+    if (inputs.length === 0) {
+        console.log('Usage: node tools/generate-songs.js [options] <playlist_url_or_id> [more...]\n');
+        console.log('Options:');
+        console.log('  --append          Add songs to existing songs-data.js instead of replacing');
+        console.log(`  --genre <tag>     Tag songs with genre (${VALID_GENRES.slice(0, 5).join('/')}/...)`);
+        console.log('  --json            Also output songs.json for runtime loading');
+        console.log('  --dry-run         Show songs without writing files');
+        console.log('  --validate        Check existing songs for stale/unavailable tracks');
+        process.exit(1);
+    }
+
+    console.log('Hitster Song Generator\n');
 
     let allSongs = [];
 
     for (const input of inputs) {
         const playlistId = extractPlaylistId(input);
-        console.log(`📋 Fetching playlist: ${playlistId}${genre ? ` [${genre}]` : ''}`);
+        console.log(`Fetching playlist: ${playlistId}${genre ? ` [${genre}]` : ''}`);
 
-        // Step 1: Get track list from playlist embed
-        const { name, tracks } = await fetchPlaylistFromEmbed(playlistId);
-        console.log(`   "${name}" — ${tracks.length} tracks`);
+        const playlist = await fetchPlaylistViaAPI(playlistId, token);
+        console.log(`   "${playlist.name}" — ${playlist.tracks.total} tracks`);
 
-        // Step 2: Enrich with release years from individual track embeds
-        const enriched = await enrichTracksWithYears(tracks, name);
+        const items = await fetchPlaylistTracksViaAPI(playlistId, token);
+        const songs = items.map(item => apiTrackToSong(item, genre)).filter(Boolean);
 
-        // Add genre tag
-        const songs = enriched.map(t => {
-            const song = {
-                title: t.title,
-                artist: t.artist,
-                year: t.year,
-                spotifyId: t.spotifyId,
-            };
-            if (genre) song.genre = genre;
-            return song;
-        });
-
-        console.log(`   ✅ ${songs.length} songs with release dates\n`);
+        console.log(`   ${songs.length} songs with release dates\n`);
         allSongs.push(...songs);
 
-        // Delay between playlists
-        await sleep(1000);
+        await sleep(100);
     }
 
     // Append to existing if requested
     if (appendMode) {
         const existing = loadExistingSongs();
-        console.log(`📂 Existing songs: ${existing.length}`);
+        console.log(`Existing songs: ${existing.length}`);
         allSongs = [...existing, ...allSongs];
     }
 
@@ -327,7 +385,7 @@ async function main() {
     const beforeDedup = allSongs.length;
     allSongs = deduplicateSongs(allSongs);
     if (beforeDedup !== allSongs.length) {
-        console.log(`🔄 Removed ${beforeDedup - allSongs.length} duplicates`);
+        console.log(`Removed ${beforeDedup - allSongs.length} duplicates`);
     }
 
     // Sort by year
@@ -335,7 +393,7 @@ async function main() {
 
     // Print summary
     const groups = groupByDecade(allSongs);
-    console.log(`\n📊 Total: ${allSongs.length} songs`);
+    console.log(`\nTotal: ${allSongs.length} songs`);
     Object.keys(groups)
         .sort()
         .forEach(decade => {
@@ -349,7 +407,7 @@ async function main() {
         genreCounts[g] = (genreCounts[g] || 0) + 1;
     });
     if (Object.keys(genreCounts).length > 1 || !genreCounts['untagged']) {
-        console.log('\n🎸 By genre:');
+        console.log('\nBy genre:');
         Object.entries(genreCounts)
             .sort((a, b) => b[1] - a[1])
             .forEach(([g, count]) => {
@@ -358,27 +416,27 @@ async function main() {
     }
 
     if (dryRun) {
-        console.log('\n🏃 Dry run — no files written');
-        allSongs.forEach(s => console.log(`  ${s.year} | ${s.title} — ${s.artist}`));
+        console.log('\nDry run — no files written');
+        allSongs.forEach(s => console.log(`  ${s.year} | ${s.title} - ${s.artist}`));
         return;
     }
 
-    // Write songs.js
+    // Write songs-data.js
     const jsContent = generateSongsJS(allSongs);
     fs.writeFileSync(SONGS_JS_PATH, jsContent, 'utf-8');
-    console.log(`\n✅ Written: songs-data.js (${allSongs.length} songs)`);
+    console.log(`\nWritten: songs-data.js (${allSongs.length} songs)`);
 
     // Optionally write songs.json
     if (jsonMode) {
         const jsonContent = JSON.stringify(allSongs, null, 2);
         fs.writeFileSync(SONGS_JSON_PATH, jsonContent, 'utf-8');
-        console.log(`✅ Written: songs.json`);
+        console.log('Written: songs.json');
     }
 
-    console.log('\n🎉 Done! Remember to bump cache version in index.html');
+    console.log('\nDone! Remember to bump CACHE_VERSION in sw.js');
 }
 
 main().catch(err => {
-    console.error('❌ Error:', err.message);
+    console.error('Error:', err.message);
     process.exit(1);
 });

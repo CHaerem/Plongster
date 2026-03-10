@@ -28,6 +28,8 @@ const mockElement = () => ({
     disabled: false,
     value: '0',
     focus: () => {},
+    querySelectorAll: () => [],
+    querySelector: () => null,
 });
 const mockDoc = {
     getElementById: () => mockElement(),
@@ -79,7 +81,7 @@ vm.runInContext('(function(){' + readModule('songs-data.js') + '\nthis.SONGS_DAT
 vm.runInContext(
     '(function(){' +
         readModule('src/utils.js') +
-        '\nthis.escapeHtml=escapeHtml;this.shuffleArray=shuffleArray;\n}).call(this);',
+        '\nthis.escapeHtml=escapeHtml;this.shuffleArray=shuffleArray;this.isValidSong=isValidSong;this.extractYear=extractYear;\n}).call(this);',
     ctx,
 );
 
@@ -87,7 +89,7 @@ vm.runInContext(
 vm.runInContext(
     '(function(){' +
         readModule('src/songs.js') +
-        '\nthis.getSongs=getSongs;this.setSongs=setSongs;this.resetSongs=resetSongs;this.getAllSongs=getAllSongs;\n}).call(this);',
+        '\ninitSongsSync(this.SONGS_DATA);\nthis.getSongs=getSongs;this.setSongs=setSongs;this.resetSongs=resetSongs;this.getAllSongs=getAllSongs;this.initSongsSync=initSongsSync;\n}).call(this);',
     ctx,
 );
 
@@ -1478,6 +1480,41 @@ G.confirmPlacement();
 G.resolvePlacement();
 assert('Int: Alice wins at score 4', G.players[0].score === 4);
 assert('Int: Alice is winner', G.players.find(p => p.score >= G.cardsToWin).name === 'Alice');
+
+// ==================== SONG VALIDATION & YEAR EXTRACTION ====================
+console.log('\n--- extractYear ---');
+const extractYear = sandbox.extractYear;
+
+assert('extractYear: full date with day precision', extractYear('2023-06-15', 'day') === 2023);
+assert('extractYear: month precision', extractYear('2023-06', 'month') === 2023);
+assert('extractYear: year-only precision', extractYear('2023', 'year') === 2023);
+assert('extractYear: ISO string with day precision', extractYear('2023-06-15T00:00:00Z', 'day') === 2023);
+assert('extractYear: null input returns null', extractYear(null, 'day') === null);
+assert('extractYear: empty string returns null', extractYear('', 'day') === null);
+assert('extractYear: invalid date returns null', extractYear('not-a-date', 'day') === null);
+assert('extractYear: year 1899 out of range', extractYear('1899', 'year') === null);
+assert('extractYear: no precision falls back to substring', extractYear('2020-01-01') === 2020);
+
+console.log('\n--- isValidSong ---');
+const isValidSong = sandbox.isValidSong;
+
+const validSong = { title: 'Test', artist: 'Artist', year: 2020, spotifyId: '1234567890abcdefABCDEF' };
+assert('isValidSong: valid song returns true', isValidSong(validSong) === true);
+assert('isValidSong: null returns false', isValidSong(null) === false);
+assert('isValidSong: missing title', isValidSong({ ...validSong, title: '' }) === false);
+assert('isValidSong: missing artist', isValidSong({ ...validSong, artist: '' }) === false);
+assert('isValidSong: year too old', isValidSong({ ...validSong, year: 1800 }) === false);
+assert('isValidSong: non-integer year', isValidSong({ ...validSong, year: 2020.5 }) === false);
+assert('isValidSong: invalid spotifyId', isValidSong({ ...validSong, spotifyId: 'short' }) === false);
+assert(
+    'isValidSong: spotifyId with special chars',
+    isValidSong({ ...validSong, spotifyId: '12345678@0abcdefABCDEF' }) === false,
+);
+
+console.log('\n--- coverUrl in timeline cards ---');
+G.init(['Alice', 'Bob'], 10);
+const coverTestCard = G.players[0].timeline[0];
+assert('Timeline card has coverUrl property', 'coverUrl' in coverTestCard);
 
 // ==================== SUMMARY ====================
 const total = passed + failed;
