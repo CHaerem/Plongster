@@ -52,6 +52,7 @@
                 </div>
                 <button class="btn btn-primary btn-large" onclick="App.showSetup()">Start spill</button>
                 <button class="btn btn-ghost" onclick="App.quickStart()">Hurtigstart (2 spillere)</button>
+                <button class="btn btn-ghost" onclick="App.showScreen('screen-how-to-play')">Hvordan spille?</button>
                 <button
                     class="btn btn-secondary btn-install"
                     id="btn-install"
@@ -60,6 +61,157 @@
                 >
                     Installer appen
                 </button>
+            </div>
+        </div>
+
+        <!-- How to Play Screen -->
+        <div id="screen-how-to-play" class="screen">
+            <div class="screen-content">
+                <div class="guide-header">
+                    <h2>Hvordan spille</h2>
+                    <div class="guide-progress" id="guide-progress"></div>
+                </div>
+
+                <div class="guide-carousel" id="guide-carousel">
+                    <!-- Step 1: Objective -->
+                    <div class="guide-step active" data-step="0">
+                        <div class="guide-icon">🎯</div>
+                        <h3 class="guide-step-title">Målet</h3>
+                        <p class="guide-text">
+                            Plasser sanger i riktig kronologisk rekkefølge på tidslinjen din. Første spiller som når
+                            målet (standard: 10 kort) vinner!
+                        </p>
+                        <div class="guide-visual">
+                            <div class="guide-timeline-demo">
+                                <div class="guide-demo-card">
+                                    <span class="guide-demo-year">1985</span>
+                                    <span class="guide-demo-title">Take On Me</span>
+                                </div>
+                                <div class="guide-demo-card">
+                                    <span class="guide-demo-year">1999</span>
+                                    <span class="guide-demo-title">Smooth</span>
+                                </div>
+                                <div class="guide-demo-card highlight">
+                                    <span class="guide-demo-year">2017</span>
+                                    <span class="guide-demo-title">Shape of You</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Listen -->
+                    <div class="guide-step" data-step="1">
+                        <div class="guide-icon">🎧</div>
+                        <h3 class="guide-step-title">Lytt til sangen</h3>
+                        <p class="guide-text">
+                            Hver runde spilles en sang. Lytt nøye og prøv å gjette når den ble utgitt. Tittelen er
+                            skjult mens du lytter!
+                        </p>
+                        <div class="guide-visual">
+                            <div class="guide-player-demo">
+                                <div class="guide-bars">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                                <p class="guide-demo-label">??? — Ukjent sang</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Place -->
+                    <div class="guide-step" data-step="2">
+                        <div class="guide-icon">📍</div>
+                        <h3 class="guide-step-title">Plasser på tidslinjen</h3>
+                        <p class="guide-text">
+                            Trykk på en plassering mellom kortene dine for å sette sangen der du tror den hører hjemme.
+                            Riktig plassering = kortet beholdes!
+                        </p>
+                        <div class="guide-visual">
+                            <div class="guide-timeline-demo">
+                                <div class="guide-demo-card small">
+                                    <span class="guide-demo-year">1985</span>
+                                </div>
+                                <div class="guide-demo-dropzone">
+                                    <span>Plasser her?</span>
+                                </div>
+                                <div class="guide-demo-card small">
+                                    <span class="guide-demo-year">2003</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Challenge -->
+                    <div class="guide-step" data-step="3">
+                        <div class="guide-icon">⚔️</div>
+                        <h3 class="guide-step-title">Utfordringer</h3>
+                        <p class="guide-text">
+                            Etter plassering kan du utfordre en annen spiller! De satser 1 token på å plassere sangen
+                            riktig på sin tidslinje. Vinner utfordreren, stjeles kortet!
+                        </p>
+                        <div class="guide-visual">
+                            <div class="guide-challenge-demo">
+                                <div class="guide-challenge-vs">
+                                    <span class="guide-player-a">Spiller A</span>
+                                    <span class="guide-vs">VS</span>
+                                    <span class="guide-player-b">Spiller B</span>
+                                </div>
+                                <p class="guide-demo-label">Koster 1 token å utfordre</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 5: Tokens -->
+                    <div class="guide-step" data-step="4">
+                        <div class="guide-icon">🔶</div>
+                        <h3 class="guide-step-title">Tokens</h3>
+                        <p class="guide-text">
+                            Alle starter med 3 tokens. Bruk dem til å utfordre motstandere. Tjen ekstra tokens ved å
+                            gjette tittel og artist riktig!
+                        </p>
+                        <div class="guide-visual">
+                            <div class="guide-tokens-demo">
+                                <div class="guide-token-row">
+                                    <span>Utfordre</span>
+                                    <span class="guide-token-cost">-1 🔶</span>
+                                </div>
+                                <div class="guide-token-row earn">
+                                    <span>Gjett tittel</span>
+                                    <span class="guide-token-cost">+1 🔶</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 6: Win -->
+                    <div class="guide-step" data-step="5">
+                        <div class="guide-icon">🏆</div>
+                        <h3 class="guide-step-title">Vinn spillet!</h3>
+                        <p class="guide-text">
+                            Første spiller som får nok kort på tidslinjen vinner. Antall kort kan justeres i
+                            innstillingene (3–20).
+                        </p>
+                        <div class="guide-visual">
+                            <div class="guide-win-demo">
+                                <div class="guide-win-trophy">🏆</div>
+                                <p class="guide-win-text">Gratulerer!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="guide-nav">
+                    <button class="btn btn-ghost guide-nav-btn" id="guide-prev" onclick="App.guideStep(-1)">
+                        Forrige
+                    </button>
+                    <button class="btn btn-primary guide-nav-btn" id="guide-next" onclick="App.guideStep(1)">
+                        Neste
+                    </button>
+                </div>
+                <button class="btn btn-ghost" onclick="App.showScreen('screen-welcome')">Tilbake til meny</button>
             </div>
         </div>
 
