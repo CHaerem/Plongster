@@ -1,0 +1,108 @@
+name: Update Song Database
+
+on:
+    workflow_dispatch:
+        inputs:
+            mode:
+                description: 'Operation mode'
+                required: true
+                type: choice
+                options:
+                    - validate
+                    - update
+                default: validate
+            playlist_url:
+                description: 'Spotify playlist URL (optional, for ad-hoc import)'
+                required: false
+                type: string
+            genre:
+                description: 'Genre tag for ad-hoc import'
+                required: false
+                type: string
+
+jobs:
+    update-songs:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            pull-requests: write
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+
+            - name: Validate existing songs
+              if: inputs.mode == 'validate'
+              env:
+                  SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+                  SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+              run: node tools/generate-songs.js --validate
+
+            - name: Update from configured playlists
+              if: inputs.mode == 'update' && !inputs.playlist_url
+              env:
+                  SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+                  SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+              run: node tools/update-songs.js
+
+            - name: Import ad-hoc playlist
+              if: inputs.mode == 'update' && inputs.playlist_url
+              env:
+                  SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+                  SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+              run: |
+                  ARGS="--append ${{ inputs.playlist_url }}"
+                  if [ -n "${{ inputs.genre }}" ]; then
+                    ARGS="--append --genre ${{ inputs.genre }} ${{ inputs.playlist_url }}"
+                  fi
+                  node tools/generate-songs.js $ARGS
+
+            - name: Run tests
+              if: inputs.mode == 'update'
+              run: |
+                  npm ci
+                  npm test
+
+            - name: Check for changes
+              if: inputs.mode == 'update'
+              id: changes
+              run: |
+                  if git diff --quiet songs-data.js; then
+                    echo "changed=false" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "changed=true" >> "$GITHUB_OUTPUT"
+                    ADDED=$(git diff --numstat songs-data.js | awk '{print $1}')
+                    REMOVED=$(git diff --numstat songs-data.js | awk '{print $2}')
+                    echo "added=$ADDED" >> "$GITHUB_OUTPUT"
+                    echo "removed=$REMOVED" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Create Pull Request
+              if: inputs.mode == 'update' && steps.changes.outputs.changed == 'true'
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  BRANCH="update-songs-$(date +%Y%m%d)"
+                  git checkout -b "$BRANCH"
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git add songs-data.js
+                  git commit -m "Update song database
+
+                  +${{ steps.changes.outputs.added }}/-${{ steps.changes.outputs.removed }} lines in songs-data.js"
+                  git push -u origin "$BRANCH"
+                  gh pr create \
+                    --title "Update song database ($(date +%Y-%m-%d))" \
+                    --body "Automated song database update.
+
+                  Changes: +${{ steps.changes.outputs.added }}/-${{ steps.changes.outputs.removed }} lines
+
+                  Run tests before merging."
+
+            - name: No changes
+              if: inputs.mode == 'update' && steps.changes.outputs.changed == 'false'
+              run: echo "No changes to songs-data.js"

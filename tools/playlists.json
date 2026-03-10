@@ -1,0 +1,15 @@
+{
+    "description": "Spotify playlists used to build the song database. Each entry maps a playlist ID to a genre tag.",
+    "playlists": [
+        {
+            "id": "37i9dQZF1DXcBWIGoYBM5M",
+            "genre": "pop",
+            "name": "Today's Top Hits"
+        },
+        {
+            "id": "37i9dQZF1DX0XUsuxWHRQd",
+            "genre": "hiphop",
+            "name": "RapCaviar"
+        }
+    ]
+}
