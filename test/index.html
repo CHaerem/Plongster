@@ -29,8 +29,13 @@
         />
     </head>
     <body>
+        <a href="#screen-game" class="skip-link">Hopp til spillinnhold</a>
+
+        <!-- Screen reader announcements -->
+        <div id="a11y-announcements" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
         <!-- PR Preview Banner (hidden by default, populated by CI) -->
-        <div id="pr-preview-banner">Preview av <a href="https://github.com/CHaerem/Plongster/pull/36">#36: Add preview link comment on pull requests</a></div>
+        <div id="pr-preview-banner">Preview av <a href="https://github.com/CHaerem/Plongster/pull/33">#33: Add WCAG 2.1 AA accessibility improvements</a></div>
 
         <!-- Welcome Screen -->
         <div id="screen-welcome" class="screen active">
@@ -198,7 +203,7 @@
                     </button>
                 </div>
                 <div class="current-turn" id="current-turn" role="status" aria-live="polite"></div>
-                <div class="game-info-bar" id="game-info-bar"></div>
+                <div class="game-info-bar" id="game-info-bar" aria-live="polite"></div>
             </div>
 
             <div class="game-area">
@@ -254,14 +259,14 @@
         </div>
 
         <!-- Challenge Phase Overlay -->
-        <div id="challenge-overlay" class="overlay">
+        <div id="challenge-overlay" class="overlay" role="dialog" aria-modal="true" aria-label="Utfordring">
             <div class="overlay-content" id="challenge-content">
                 <!-- Dynamic content from challenge flow -->
             </div>
         </div>
 
         <!-- Song Reveal (two-phase: pre-reveal then result) -->
-        <div id="song-reveal-overlay" class="overlay">
+        <div id="song-reveal-overlay" class="overlay" role="dialog" aria-modal="true" aria-label="Resultat">
             <div class="overlay-content">
                 <!-- Phase 1: Pre-reveal — quick decision point -->
                 <div id="pre-reveal">
@@ -298,6 +303,7 @@
                                 id="btn-edit-song"
                                 onclick="Game.gmStartEditSong()"
                                 title="Rediger sanginfo"
+                                aria-label="Rediger sanginfo"
                             >
                                 ✏️
                             </button>
@@ -335,7 +341,7 @@
 
         <!-- Game Master Panel -->
         <div id="gm-backdrop" class="gm-backdrop" onclick="Game.closeMenu()" role="presentation"></div>
-        <div id="gm-panel" class="gm-panel">
+        <div id="gm-panel" class="gm-panel" role="dialog" aria-modal="true" aria-label="Spillkontroll">
             <div class="gm-panel-header">
                 <h3>Spillkontroll</h3>
                 <button class="gm-close" onclick="Game.closeMenu()" aria-label="Lukk meny">&times;</button>
@@ -344,7 +350,7 @@
         </div>
 
         <!-- Pass Phone Overlay -->
-        <div id="pass-phone-overlay" class="overlay">
+        <div id="pass-phone-overlay" class="overlay" role="dialog" aria-modal="true" aria-label="Gi telefonen videre">
             <div class="overlay-content">
                 <div class="pass-phone-icon">&#128241;</div>
                 <h2>Gi telefonen til</h2>

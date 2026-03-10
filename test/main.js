@@ -61,6 +61,16 @@ document.addEventListener('keydown', e => {
     }
 });
 
+// ─── Global Error Handling ───
+
+window.onerror = (msg, source, line, col, error) => {
+    console.error('Uncaught error:', { msg, source, line, col, stack: error?.stack });
+};
+
+window.addEventListener('unhandledrejection', event => {
+    console.error('Unhandled promise rejection:', event.reason);
+});
+
 // ─── Spotify IFrame API callback ───
 
 window.onSpotifyIframeApiReady = IFrameAPI => {
