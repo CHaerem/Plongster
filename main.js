@@ -84,6 +84,34 @@ if (clientIdMeta) {
     setClientId(clientIdMeta.content);
 }
 
+// ─── PWA Install Prompt ───
+
+let _deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _deferredInstallPrompt = e;
+    const btn = document.getElementById('btn-install');
+    if (btn) btn.style.display = '';
+});
+
+window.addEventListener('appinstalled', () => {
+    _deferredInstallPrompt = null;
+    const btn = document.getElementById('btn-install');
+    if (btn) btn.style.display = 'none';
+});
+
+window.installApp = async () => {
+    if (!_deferredInstallPrompt) return;
+    _deferredInstallPrompt.prompt();
+    const { outcome } = await _deferredInstallPrompt.userChoice;
+    if (outcome === 'accepted') {
+        _deferredInstallPrompt = null;
+        const btn = document.getElementById('btn-install');
+        if (btn) btn.style.display = 'none';
+    }
+};
+
 // ─── Network status detection ───
 
 function updateOfflineBanner() {
