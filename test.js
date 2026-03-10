@@ -2,14 +2,31 @@
 // Integration, regression, and edge case tests
 const vm = require('vm');
 const fs = require('fs');
+const path = require('path');
 
-const songsCode = fs.readFileSync('songs.js', 'utf-8');
-const gameCode = fs.readFileSync('game.js', 'utf-8');
+// Strip ES module syntax so files can run in a VM context
+function stripModule(code) {
+    return code
+        .replace(/^import\s+\{[^}]*\}\s+from\s+['"][^'"]+['"];?\s*$/gm, '')
+        .replace(/^import\s+['"][^'"]+['"];?\s*$/gm, '')
+        .replace(/^export\s+(const|let|var|function|class|async\s+function)/gm, '$1')
+        .replace(/^export\s+default\s+/gm, 'const _default = ')
+        .replace(/^export\s+\{[^}]*\};?\s*$/gm, '');
+}
+
+function readModule(filePath) {
+    return stripModule(fs.readFileSync(path.join(__dirname, filePath), 'utf-8'));
+}
 
 const mockElement = () => ({
-    textContent: '', innerHTML: '', className: '', style: {}, href: '',
+    textContent: '',
+    innerHTML: '',
+    className: '',
+    style: {},
+    href: '',
     classList: { add: () => {}, remove: () => {}, toggle: () => {}, contains: () => false },
-    disabled: false, value: '0',
+    disabled: false,
+    value: '0',
     focus: () => {},
 });
 const mockDoc = {
@@ -23,42 +40,134 @@ const mockDoc = {
 
 const storageBacking = {};
 const mockStorage = {
-    getItem: (k) => storageBacking[k] || null,
-    setItem: (k, v) => { storageBacking[k] = v; },
-    removeItem: (k) => { delete storageBacking[k]; },
+    getItem: k => storageBacking[k] || null,
+    setItem: (k, v) => {
+        storageBacking[k] = v;
+    },
+    removeItem: k => {
+        delete storageBacking[k];
+    },
 };
 
 const sandbox = {
     document: mockDoc,
     window: {},
     console: console,
-    crypto: { getRandomValues: (arr) => { for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256); return arr; } },
+    crypto: {
+        getRandomValues: arr => {
+            for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256);
+            return arr;
+        },
+    },
     localStorage: mockStorage,
     setTimeout: setTimeout,
     clearTimeout: clearTimeout,
     Promise: Promise,
+    Set: Set,
     fetch: () => Promise.resolve({ json: () => ({}) }),
     navigator: { vibrate: () => {} },
-    App: { showScreen: () => {} },
 };
 sandbox.window = sandbox;
 
 const ctx = vm.createContext(sandbox);
-vm.runInContext('(function(){' + songsCode + '\nthis.SONGS_DATABASE=SONGS_DATABASE;this.shuffleArray=shuffleArray;\n}).call(this);', ctx);
-vm.runInContext('(function(){' + gameCode + '\nthis.Game=Game;\n}).call(this);', ctx);
+
+// Load modules in dependency order, exposing symbols on the sandbox
+// 1. Songs data
+vm.runInContext('(function(){' + readModule('songs-data.js') + '\nthis.SONGS_DATA=SONGS_DATA;\n}).call(this);', ctx);
+
+// 2. Utilities (escapeHtml, shuffleArray)
+vm.runInContext(
+    '(function(){' +
+        readModule('src/utils.js') +
+        '\nthis.escapeHtml=escapeHtml;this.shuffleArray=shuffleArray;\n}).call(this);',
+    ctx,
+);
+
+// 3. Songs store (uses SONGS_DATA)
+vm.runInContext(
+    '(function(){' +
+        readModule('src/songs.js') +
+        '\nthis.getSongs=getSongs;this.setSongs=setSongs;this.resetSongs=resetSongs;this.getAllSongs=getAllSongs;\n}).call(this);',
+    ctx,
+);
+
+// 4. Game modules — load and expose method objects
+vm.runInContext(
+    '(function(){' + readModule('src/game/state.js') + '\nthis.stateMethods=stateMethods;\n}).call(this);',
+    ctx,
+);
+vm.runInContext(
+    '(function(){' + readModule('src/game/spotify.js') + '\nthis.spotifyMethods=spotifyMethods;\n}).call(this);',
+    ctx,
+);
+vm.runInContext('(function(){' + readModule('src/game/ui.js') + '\nthis.uiMethods=uiMethods;\n}).call(this);', ctx);
+vm.runInContext(
+    '(function(){' + readModule('src/game/engine.js') + '\nthis.engineMethods=engineMethods;\n}).call(this);',
+    ctx,
+);
+vm.runInContext(
+    '(function(){' + readModule('src/game/gm-panel.js') + '\nthis.gmMethods=gmMethods;\n}).call(this);',
+    ctx,
+);
+
+// 5. Compose Game object (mirrors main.js)
+vm.runInContext(
+    `
+    const Game = {
+        players: [],
+        currentPlayerIndex: 0,
+        cardsToWin: 10,
+        deck: [],
+        currentSong: null,
+        usedSongs: new Set(),
+        isWaitingForPlacement: false,
+        selectedDropIndex: null,
+        spotifyAPI: null,
+        embedController: null,
+        hasPlayedSong: false,
+        _isPlaying: false,
+        challengePhase: null,
+        titleArtistClaimed: false,
+        MAX_TOKENS: 5,
+    };
+    // Use defineProperties to preserve getters (e.g., currentPlayer)
+    [engineMethods, uiMethods, spotifyMethods, stateMethods, gmMethods].forEach(function(methods) {
+        Object.defineProperties(Game, Object.getOwnPropertyDescriptors(methods));
+    });
+    this.Game = Game;
+
+    // App stub for cross-references
+    this.App = { showScreen: function(){} };
+    this.window.App = this.App;
+    this.window.Game = Game;
+
+    // Legacy compatibility aliases used by tests
+    this.SONGS_DATABASE = getSongs();
+    this.shuffleArray = shuffleArray;
+`,
+    ctx,
+);
 
 const G = sandbox.Game;
 const DB = sandbox.SONGS_DATABASE;
 const shuffle = sandbox.shuffleArray;
 
-let passed = 0, failed = 0;
+let passed = 0,
+    failed = 0;
 
 function assert(desc, cond) {
-    if (cond) { passed++; console.log('\x1b[32mPASS\x1b[0m:', desc); }
-    else { failed++; console.error('\x1b[31mFAIL\x1b[0m:', desc); }
+    if (cond) {
+        passed++;
+        console.log('\x1b[32mPASS\x1b[0m:', desc);
+    } else {
+        failed++;
+        console.error('\x1b[31mFAIL\x1b[0m:', desc);
+    }
 }
 
-function section(name) { console.log('\n\x1b[36m--- ' + name + ' ---\x1b[0m'); }
+function section(name) {
+    console.log('\n\x1b[36m--- ' + name + ' ---\x1b[0m');
+}
 
 // Helper: find correct placement position for a song in a timeline
 function findCorrectIndex(timeline, song) {
@@ -84,33 +193,65 @@ function placeCorrectly(playerIdx) {
 section('Songs Database');
 assert('DB is array', Array.isArray(DB));
 assert('Has 80+ songs', DB.length >= 80);
-assert('All have required fields', DB.every(s => s.title && s.artist && s.year && s.spotifyId));
-assert('All years between 1950-2030', DB.every(s => s.year >= 1950 && s.year <= 2030));
-assert('Spotify IDs valid format', DB.every(s => /^[a-zA-Z0-9]{20,24}$/.test(s.spotifyId)));
+assert(
+    'All have required fields',
+    DB.every(s => s.title && s.artist && s.year && s.spotifyId),
+);
+assert(
+    'All years between 1950-2030',
+    DB.every(s => s.year >= 1950 && s.year <= 2030),
+);
+assert(
+    'Spotify IDs valid format',
+    DB.every(s => /^[a-zA-Z0-9]{20,24}$/.test(s.spotifyId)),
+);
 
 const keys = DB.map(s => s.title + '|' + s.artist);
 assert('No duplicate title+artist', keys.length === new Set(keys).size);
 
 const decades = {};
-DB.forEach(s => { const d = Math.floor(s.year / 10) * 10; decades[d] = (decades[d] || 0) + 1; });
+DB.forEach(s => {
+    const d = Math.floor(s.year / 10) * 10;
+    decades[d] = (decades[d] || 0) + 1;
+});
 assert('Songs from 5+ decades', Object.keys(decades).length >= 5);
-console.log('  Decade distribution:', Object.entries(decades).sort().map(([d, c]) => d + 's:' + c).join(', '));
+console.log(
+    '  Decade distribution:',
+    Object.entries(decades)
+        .sort()
+        .map(([d, c]) => d + 's:' + c)
+        .join(', '),
+);
 
 // Verify song data integrity
-assert('All years are integers', DB.every(s => Number.isInteger(s.year)));
-assert('All titles non-empty strings', DB.every(s => typeof s.title === 'string' && s.title.trim().length > 0));
-assert('All artists non-empty strings', DB.every(s => typeof s.artist === 'string' && s.artist.trim().length > 0));
+assert(
+    'All years are integers',
+    DB.every(s => Number.isInteger(s.year)),
+);
+assert(
+    'All titles non-empty strings',
+    DB.every(s => typeof s.title === 'string' && s.title.trim().length > 0),
+);
+assert(
+    'All artists non-empty strings',
+    DB.every(s => typeof s.artist === 'string' && s.artist.trim().length > 0),
+);
 
 // ==================== SHUFFLE ====================
 section('Shuffle');
 const orig = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const sh = shuffle(orig);
 assert('Same length', sh.length === orig.length);
-assert('Contains all elements', orig.every(x => sh.includes(x)));
+assert(
+    'Contains all elements',
+    orig.every(x => sh.includes(x)),
+);
 assert('Does not modify original', JSON.stringify(orig) === '[1,2,3,4,5,6,7,8,9,10]');
 
 let diffCount = 0;
-for (let i = 0; i < 10; i++) { if (JSON.stringify(shuffle(orig)) !== JSON.stringify(orig)) diffCount++; }
+for (let i = 0; i < 10; i++) {
+    if (JSON.stringify(shuffle(orig)) !== JSON.stringify(orig)) diffCount++;
+}
 assert('Produces different orderings (8+/10)', diffCount >= 8);
 
 // Edge: single element
@@ -126,13 +267,25 @@ section('Game Init');
 G.init(['Alice', 'Bob'], 10);
 assert('2 players', G.players.length === 2);
 assert('Correct names', G.players[0].name === 'Alice' && G.players[1].name === 'Bob');
-assert('Each player starts with 1 card', G.players.every(p => p.timeline.length === 1));
-assert('Starting cards have year', G.players.every(p => p.timeline[0].year >= 1950));
-assert('Score 1 (starting card)', G.players.every(p => p.score === 1));
+assert(
+    'Each player starts with 1 card',
+    G.players.every(p => p.timeline.length === 1),
+);
+assert(
+    'Starting cards have year',
+    G.players.every(p => p.timeline[0].year >= 1950),
+);
+assert(
+    'Score 1 (starting card)',
+    G.players.every(p => p.score === 1),
+);
 assert('cardsToWin = 10', G.cardsToWin === 10);
 assert('currentPlayer is Alice', G.currentPlayer.name === 'Alice');
 assert('Deck populated', G.deck.length > 0);
-assert('Each player starts with 3 tokens', G.players.every(p => p.tokens === 3));
+assert(
+    'Each player starts with 3 tokens',
+    G.players.every(p => p.tokens === 3),
+);
 assert('challengePhase is null at start', G.challengePhase === null);
 assert('titleArtistClaimed is false at start', G.titleArtistClaimed === false);
 assert('currentSong is null at start', G.currentSong === null);
@@ -140,11 +293,17 @@ assert('isWaitingForPlacement is false at start', G.isWaitingForPlacement === fa
 
 // Init with max players (10)
 section('Game Init - Max Players');
-const tenNames = Array.from({length: 10}, (_, i) => 'Player' + (i + 1));
+const tenNames = Array.from({ length: 10 }, (_, i) => 'Player' + (i + 1));
 G.init(tenNames, 5);
 assert('10 players initialized', G.players.length === 10);
-assert('All 10 players have unique starting cards', new Set(G.players.map(p => p.timeline[0].title + p.timeline[0].artist)).size === 10);
-assert('All 10 have 3 tokens', G.players.every(p => p.tokens === 3));
+assert(
+    'All 10 players have unique starting cards',
+    new Set(G.players.map(p => p.timeline[0].title + p.timeline[0].artist)).size === 10,
+);
+assert(
+    'All 10 have 3 tokens',
+    G.players.every(p => p.tokens === 3),
+);
 
 // Init with min players (2)
 G.init(['A', 'B'], 2);
@@ -158,12 +317,19 @@ const s1 = G.drawSong();
 assert('Returns song object', s1 && s1.title && s1.artist && s1.year);
 const s2 = G.drawSong();
 assert('Second draw is different', s1.title !== s2.title || s1.artist !== s2.artist);
-assert('Starting cards not redrawn', !G.players.some(p => p.timeline[0].title === s1.title && p.timeline[0].artist === s1.artist));
+assert(
+    'Starting cards not redrawn',
+    !G.players.some(p => p.timeline[0].title === s1.title && p.timeline[0].artist === s1.artist),
+);
 
 // Draw many
 G.init(['A', 'B'], 10);
 let drawOk = true;
-try { for (let i = 0; i < 150; i++) G.drawSong(); } catch (e) { drawOk = false; }
+try {
+    for (let i = 0; i < 150; i++) G.drawSong();
+} catch (e) {
+    drawOk = false;
+}
 assert('Can draw 150 songs (reshuffles)', drawOk);
 
 // Test song key deduplication
@@ -174,7 +340,10 @@ for (let i = 0; i < 50; i++) {
     const song = G.drawSong();
     if (!song) break;
     const key = song.title.toLowerCase() + '-' + song.artist.toLowerCase();
-    if (drawn.has(key)) { noDupes = false; break; }
+    if (drawn.has(key)) {
+        noDupes = false;
+        break;
+    }
     drawn.add(key);
 }
 assert('No duplicate songs drawn (50 draws)', noDupes);
@@ -220,7 +389,10 @@ assert('Duplicate years: placement at 3 fails (before 2000)', G.isPlacementCorre
 
 // All same year
 const allSame = [{ year: 2000 }, { year: 2000 }, { year: 2000 }];
-assert('All same year: any position correct', [0, 1, 2, 3].every(i => G.isPlacementCorrect(allSame, { year: 2000 }, i)));
+assert(
+    'All same year: any position correct',
+    [0, 1, 2, 3].every(i => G.isPlacementCorrect(allSame, { year: 2000 }, i)),
+);
 
 // Boundary years
 assert('Year 1950 at start: correct', G.isPlacementCorrect([{ year: 1960 }], { year: 1950 }, 0));
@@ -240,7 +412,7 @@ assert('escapeHtml blocks <script>', G.escapeHtml('<script>alert(1)</script>').i
 assert('Normal text passes through', G.escapeHtml('Hello World') === 'Hello World');
 assert('escapeHtml handles &', G.escapeHtml('A & B') === 'A &amp; B');
 assert('escapeHtml handles double quotes', G.escapeHtml('"hello"') === '&quot;hello&quot;');
-assert('escapeHtml handles single quotes', G.escapeHtml("it's") === "it&#39;s");
+assert('escapeHtml handles single quotes', G.escapeHtml("it's") === 'it&#39;s');
 assert('escapeHtml handles all at once', G.escapeHtml('<a href="x">&') === '&lt;a href=&quot;x&quot;&gt;&amp;');
 
 // Spotify ID validation
@@ -286,7 +458,10 @@ assert('Wraps to 0', G.currentPlayerIndex === 0);
 // ==================== TOKEN SYSTEM ====================
 section('Token System');
 G.init(['Alice', 'Bob'], 10);
-assert('Start with 3 tokens each', G.players.every(p => p.tokens === 3));
+assert(
+    'Start with 3 tokens each',
+    G.players.every(p => p.tokens === 3),
+);
 
 // Skip song with token
 const aliceTokensBefore = G.players[0].tokens;
@@ -336,7 +511,10 @@ G.tradeTokensForCard();
 const aliceTl2 = G.players[0].timeline;
 let tradeTimelineValid = true;
 for (let i = 1; i < aliceTl2.length; i++) {
-    if (aliceTl2[i].year < aliceTl2[i - 1].year) { tradeTimelineValid = false; break; }
+    if (aliceTl2[i].year < aliceTl2[i - 1].year) {
+        tradeTimelineValid = false;
+        break;
+    }
 }
 assert('Traded card placed chronologically', tradeTimelineValid);
 
@@ -412,7 +590,10 @@ G.confirmPlacement();
 const aliceScoreBefore = G.players[0].score;
 G.resolvePlacement();
 assert('Correct placement: score increases', G.players[0].score === aliceScoreBefore + 1);
-assert('Correct placement: card added to timeline', G.players[0].timeline.some(c => c.title === resolveSong1.title));
+assert(
+    'Correct placement: card added to timeline',
+    G.players[0].timeline.some(c => c.title === resolveSong1.title),
+);
 
 // ==================== RESOLVE: NO CHALLENGE, WRONG ====================
 section('Resolution - No Challenge, Wrong');
@@ -424,14 +605,13 @@ G.isWaitingForPlacement = true;
 // Use a wrong index: place future song at start if it should go at end
 const wrongIdx = G.isPlacementCorrect(G.players[0].timeline, resolveSong2, 0) ? G.players[0].timeline.length : 0;
 // If both are correct (single card timeline allows it), manufacture a wrong scenario
-let usedWrongIdx = wrongIdx;
+const usedWrongIdx = wrongIdx;
 if (G.isPlacementCorrect(G.players[0].timeline, resolveSong2, usedWrongIdx)) {
     // For single-card timeline, create a scenario where we can test wrong placement
     // Skip this specific test with a simulated wrong result
     G.selectedDropIndex = 0;
     G.confirmPlacement();
     // Manually force wrong by using isPlacementCorrect with known-bad data
-    const wrongScore = G.players[0].score;
     // Test with an artificial wrong placement: song year 2020 at index 0 of [1960] timeline
     G.players[0].timeline = [{ year: 1960, title: 'X', artist: 'Y' }];
     G.players[0].score = 1;
@@ -469,7 +649,10 @@ G.challengePhase.challengers.push({ playerIndex: 1, dropIndex: 1 });
 const bobScoreBefore = G.players[1].score;
 G.resolvePlacement();
 assert('Challenger wins: Bob score increases', G.players[1].score === bobScoreBefore + 1);
-assert('Challenger wins: card in Bob timeline', G.players[1].timeline.some(c => c.title === 'NewSong'));
+assert(
+    'Challenger wins: card in Bob timeline',
+    G.players[1].timeline.some(c => c.title === 'NewSong'),
+);
 assert('Challenger wins: card NOT in Alice timeline', !G.players[0].timeline.some(c => c.title === 'NewSong'));
 assert('Challenger wins: Alice score unchanged', G.players[0].score === 1);
 assert('Challenger wins: winnerChallengerPlayerIndex set', G.challengePhase.winnerChallengerPlayerIndex === 1);
@@ -493,12 +676,18 @@ const bobScoreOC = G.players[1].score;
 G.resolvePlacement();
 assert('Original wins: Alice score increases', G.players[0].score === aliceScoreOC + 1);
 assert('Original wins: Bob score unchanged', G.players[1].score === bobScoreOC);
-assert('Original wins: card in Alice timeline', G.players[0].timeline.some(c => c.title === 'CorrectSong'));
+assert(
+    'Original wins: card in Alice timeline',
+    G.players[0].timeline.some(c => c.title === 'CorrectSong'),
+);
 
 // ==================== RESOLVE: ALL WRONG (NOBODY GETS CARD) ====================
 section('Resolution - Nobody Wins');
 G.init(['Alice', 'Bob'], 10);
-G.players[0].timeline = [{ year: 1980, title: 'Song80', artist: 'A' }, { year: 2000, title: 'Song00', artist: 'B' }];
+G.players[0].timeline = [
+    { year: 1980, title: 'Song80', artist: 'A' },
+    { year: 2000, title: 'Song00', artist: 'B' },
+];
 G.players[0].score = 2;
 G.currentSong = { title: 'Song90', artist: 'C', year: 1990, spotifyId: '12345678901234567890' };
 G.isWaitingForPlacement = true;
@@ -514,15 +703,18 @@ const bobScoreNW = G.players[1].score;
 G.resolvePlacement();
 assert('Nobody wins: Alice score unchanged', G.players[0].score === aliceScoreNW);
 assert('Nobody wins: Bob score unchanged', G.players[1].score === bobScoreNW);
-assert('Nobody wins: card not in any timeline',
-    !G.players[0].timeline.some(c => c.title === 'Song90') &&
-    !G.players[1].timeline.some(c => c.title === 'Song90')
+assert(
+    'Nobody wins: card not in any timeline',
+    !G.players[0].timeline.some(c => c.title === 'Song90') && !G.players[1].timeline.some(c => c.title === 'Song90'),
 );
 
 // ==================== MULTI-CHALLENGER RESOLUTION ====================
 section('Resolution - Multi Challenger');
 G.init(['Alice', 'Bob', 'Charlie'], 10);
-G.players[0].timeline = [{ year: 1970, title: 'S70', artist: 'A' }, { year: 2010, title: 'S10', artist: 'B' }];
+G.players[0].timeline = [
+    { year: 1970, title: 'S70', artist: 'A' },
+    { year: 2010, title: 'S10', artist: 'B' },
+];
 G.players[0].score = 2;
 G.currentSong = { title: 'S90', artist: 'C', year: 1990, spotifyId: '12345678901234567890' };
 G.isWaitingForPlacement = true;
@@ -539,7 +731,10 @@ const charlieScoreBefore = G.players[2].score;
 G.resolvePlacement();
 assert('Multi: first correct challenger (Charlie) wins', G.challengePhase.winnerChallengerPlayerIndex === 2);
 assert('Multi: Charlie score increases', G.players[2].score === charlieScoreBefore + 1);
-assert('Multi: card in Charlie timeline', G.players[2].timeline.some(c => c.title === 'S90'));
+assert(
+    'Multi: card in Charlie timeline',
+    G.players[2].timeline.some(c => c.title === 'S90'),
+);
 assert('Multi: card NOT in Bob timeline', !G.players[1].timeline.some(c => c.title === 'S90'));
 
 // ==================== TITLE/ARTIST CLAIM ====================
@@ -592,7 +787,7 @@ G.players[0].score = 3;
 G.players[0].timeline = [
     { year: 1970, title: 'A', artist: 'X' },
     { year: 1990, title: 'B', artist: 'Y' },
-    { year: 2010, title: 'C', artist: 'Z' }
+    { year: 2010, title: 'C', artist: 'Z' },
 ];
 G.saveState();
 
@@ -614,27 +809,43 @@ const restoreCorrupt = G.restoreState();
 assert('Corrupt JSON: restoreState returns false', restoreCorrupt === false);
 
 // Invalid structure: too few players
-storageBacking['hitster-game'] = JSON.stringify({ players: [{ name: 'Solo', timeline: [], score: 0 }], currentPlayerIndex: 0, cardsToWin: 3 });
+storageBacking['hitster-game'] = JSON.stringify({
+    players: [{ name: 'Solo', timeline: [], score: 0 }],
+    currentPlayerIndex: 0,
+    cardsToWin: 3,
+});
 assert('Invalid structure: returns false', G.restoreState() === false);
 
 // Invalid: currentPlayerIndex out of range
 storageBacking['hitster-game'] = JSON.stringify({
-    players: [{ name: 'A', timeline: [], score: 0 }, { name: 'B', timeline: [], score: 0 }],
-    currentPlayerIndex: 5, cardsToWin: 3
+    players: [
+        { name: 'A', timeline: [], score: 0 },
+        { name: 'B', timeline: [], score: 0 },
+    ],
+    currentPlayerIndex: 5,
+    cardsToWin: 3,
 });
 assert('Bad playerIndex: returns false', G.restoreState() === false);
 
 // Invalid: negative cardsToWin
 storageBacking['hitster-game'] = JSON.stringify({
-    players: [{ name: 'A', timeline: [], score: 0 }, { name: 'B', timeline: [], score: 0 }],
-    currentPlayerIndex: 0, cardsToWin: -1
+    players: [
+        { name: 'A', timeline: [], score: 0 },
+        { name: 'B', timeline: [], score: 0 },
+    ],
+    currentPlayerIndex: 0,
+    cardsToWin: -1,
 });
 assert('Negative cardsToWin: returns false', G.restoreState() === false);
 
 // Invalid: player without name
 storageBacking['hitster-game'] = JSON.stringify({
-    players: [{ name: '', timeline: [], score: 0 }, { name: 'B', timeline: [], score: 0 }],
-    currentPlayerIndex: 0, cardsToWin: 3
+    players: [
+        { name: '', timeline: [], score: 0 },
+        { name: 'B', timeline: [], score: 0 },
+    ],
+    currentPlayerIndex: 0,
+    cardsToWin: 3,
 });
 assert('Empty name: returns false', G.restoreState() === false);
 
@@ -660,7 +871,10 @@ const oldFormatState = {
 storageBacking['hitster-game'] = JSON.stringify(oldFormatState);
 G.restoreState();
 assert('Old format migrated: challengers is array', Array.isArray(G.challengePhase.challengers));
-assert('Old format migrated: challenger preserved', G.challengePhase.challengers.length === 1 && G.challengePhase.challengers[0].playerIndex === 2);
+assert(
+    'Old format migrated: challenger preserved',
+    G.challengePhase.challengers.length === 1 && G.challengePhase.challengers[0].playerIndex === 2,
+);
 
 // Backwards compatibility: missing tokens
 const noTokensState = {
@@ -679,12 +893,22 @@ const noTokensState = {
 };
 storageBacking['hitster-game'] = JSON.stringify(noTokensState);
 G.restoreState();
-assert('Missing tokens: defaults to 3', G.players.every(p => p.tokens === 3));
+assert(
+    'Missing tokens: defaults to 3',
+    G.players.every(p => p.tokens === 3),
+);
 
 // Score recalculated from timeline
 const desyncState = {
     players: [
-        { name: 'A', timeline: [{ year: 1990, title: 'X', artist: 'Y' }, { year: 2000, title: 'Z', artist: 'W' }], score: 99 },
+        {
+            name: 'A',
+            timeline: [
+                { year: 1990, title: 'X', artist: 'Y' },
+                { year: 2000, title: 'Z', artist: 'W' },
+            ],
+            score: 99,
+        },
         { name: 'B', timeline: [{ year: 2000, title: 'X2', artist: 'Y2' }], score: 0 },
     ],
     currentPlayerIndex: 0,
@@ -710,7 +934,10 @@ section('Full Game Flow (2 players, win at 3)');
 
 G.init(['Alice', 'Bob'], 3);
 assert('Flow: Game initialized', G.players.length === 2 && G.cardsToWin === 3);
-assert('Flow: Each player starts with 1 card', G.players.every(p => p.timeline.length === 1 && p.score === 1));
+assert(
+    'Flow: Each player starts with 1 card',
+    G.players.every(p => p.timeline.length === 1 && p.score === 1),
+);
 assert('Flow: Alice starts', G.currentPlayer.name === 'Alice');
 
 // Turn 1: Alice draws and places correctly
@@ -720,7 +947,7 @@ assert('Flow: Song drawn for Alice', G.currentSong !== null);
 
 const aliceSong1 = G.currentSong;
 const tl0 = G.players[0].timeline;
-let idx0 = findCorrectIndex(tl0, aliceSong1);
+const idx0 = findCorrectIndex(tl0, aliceSong1);
 tl0.splice(idx0, 0, { title: aliceSong1.title, artist: aliceSong1.artist, year: aliceSong1.year });
 G.players[0].score = tl0.length;
 G.isWaitingForPlacement = false;
@@ -745,7 +972,7 @@ assert('Flow: Back to Alice', G.currentPlayer.name === 'Alice');
 G.currentSong = G.drawSong();
 G.isWaitingForPlacement = true;
 const aliceTl = G.players[0].timeline;
-let idx1 = findCorrectIndex(aliceTl, G.currentSong);
+const idx1 = findCorrectIndex(aliceTl, G.currentSong);
 aliceTl.splice(idx1, 0, { title: G.currentSong.title, artist: G.currentSong.artist, year: G.currentSong.year });
 G.players[0].score = aliceTl.length;
 G.isWaitingForPlacement = false;
@@ -756,7 +983,10 @@ assert('Flow: Alice wins!', flowWinner && flowWinner.name === 'Alice');
 
 let timelineValid = true;
 for (let i = 1; i < aliceTl.length; i++) {
-    if (aliceTl[i].year < aliceTl[i - 1].year) { timelineValid = false; break; }
+    if (aliceTl[i].year < aliceTl[i - 1].year) {
+        timelineValid = false;
+        break;
+    }
 }
 assert('Flow: Alice timeline is chronologically sorted', timelineValid);
 
@@ -794,7 +1024,10 @@ const charlieScore = G.players[2].score;
 G.resolvePlacement();
 assert('CFlow: Charlie steals card', G.players[2].score === charlieScore + 1);
 assert('CFlow: Bob still at 1', G.players[1].score === 1);
-assert('CFlow: Card in Charlie timeline', G.players[2].timeline.some(c => c.title === 'Song2005'));
+assert(
+    'CFlow: Card in Charlie timeline',
+    G.players[2].timeline.some(c => c.title === 'Song2005'),
+);
 
 // Advance to Charlie
 G.currentPlayerIndex = 2;
@@ -835,7 +1068,7 @@ assert('TFlow: Alice has 3 tokens after claim', G.players[0].tokens === 3);
 
 // ==================== MULTI-PLAYER ROTATION (10 players) ====================
 section('Multi-Player Rotation');
-const tenPlayers = Array.from({length: 10}, (_, i) => 'P' + (i + 1));
+const tenPlayers = Array.from({ length: 10 }, (_, i) => 'P' + (i + 1));
 G.init(tenPlayers, 5);
 assert('10 players initialized', G.players.length === 10);
 for (let i = 0; i < 20; i++) {
@@ -848,7 +1081,7 @@ for (let i = 0; i < 20; i++) {
 section('Game Restart');
 G.init(['X', 'Y'], 5);
 G.players[0].score = 5;
-G.players[0].timeline = [{year: 1970}, {year: 1980}, {year: 1990}, {year: 2000}, {year: 2010}];
+G.players[0].timeline = [{ year: 1970 }, { year: 1980 }, { year: 1990 }, { year: 2000 }, { year: 2010 }];
 G.currentPlayerIndex = 1;
 G.usedSongs.add('test-song');
 G.challengePhase = { originalPlayerIndex: 0, originalDropIndex: 1, challengers: [] };
@@ -857,11 +1090,20 @@ G.players[0].tokens = 0;
 
 // Reinit
 G.init(['X', 'Y'], 5);
-assert('Restart: scores reset to 1', G.players.every(p => p.score === 1));
-assert('Restart: timelines have 1 card', G.players.every(p => p.timeline.length === 1));
+assert(
+    'Restart: scores reset to 1',
+    G.players.every(p => p.score === 1),
+);
+assert(
+    'Restart: timelines have 1 card',
+    G.players.every(p => p.timeline.length === 1),
+);
 assert('Restart: player index reset', G.currentPlayerIndex === 0);
 assert('Restart: deck repopulated', G.deck.length > 0);
-assert('Restart: tokens reset to 3', G.players.every(p => p.tokens === 3));
+assert(
+    'Restart: tokens reset to 3',
+    G.players.every(p => p.tokens === 3),
+);
 assert('Restart: challengePhase null', G.challengePhase === null);
 assert('Restart: titleArtistClaimed false', G.titleArtistClaimed === false);
 assert('Restart: currentSong null', G.currentSong === null);
@@ -925,7 +1167,10 @@ assert('GM: move down at bottom is no-op', G.players[2].name === 'Charlie');
 section('Next Turn Winner Check');
 G.init(['Alice', 'Bob'], 2);
 // Alice already at 2 (cardsToWin) via placed cards
-G.players[0].timeline = [{ year: 1990, title: 'A', artist: 'X' }, { year: 2000, title: 'B', artist: 'Y' }];
+G.players[0].timeline = [
+    { year: 1990, title: 'A', artist: 'X' },
+    { year: 2000, title: 'B', artist: 'Y' },
+];
 G.players[0].score = 2;
 const winnerCheck = G.players.find(p => p.score >= G.cardsToWin);
 assert('Winner detected at nextTurn boundary', winnerCheck && winnerCheck.name === 'Alice');
@@ -933,7 +1178,10 @@ assert('Winner detected at nextTurn boundary', winnerCheck && winnerCheck.name =
 // ==================== EDGE: CHALLENGER ON OWN POSITION BLOCKED ====================
 section('Challenger Position Blocking');
 G.init(['Alice', 'Bob'], 10);
-G.players[0].timeline = [{ year: 1970, title: 'S1', artist: 'A' }, { year: 2010, title: 'S2', artist: 'B' }];
+G.players[0].timeline = [
+    { year: 1970, title: 'S1', artist: 'A' },
+    { year: 2010, title: 'S2', artist: 'B' },
+];
 G.players[0].score = 2;
 G.currentSong = { title: 'Test', artist: 'C', year: 1990, spotifyId: '12345678901234567890' };
 G.isWaitingForPlacement = true;
@@ -1025,8 +1273,14 @@ assert('Double confirm: challengePhase preserved', G.challengePhase === cpAfter)
 // ==================== FULL INTEGRATION: COMPLETE 4-PLAYER GAME ====================
 section('Full Integration: 4-Player Game to Completion');
 G.init(['Alice', 'Bob', 'Charlie', 'Diana'], 3);
-assert('4P: All start at score 1', G.players.every(p => p.score === 1));
-assert('4P: All have 3 tokens', G.players.every(p => p.tokens === 3));
+assert(
+    '4P: All start at score 1',
+    G.players.every(p => p.score === 1),
+);
+assert(
+    '4P: All have 3 tokens',
+    G.players.every(p => p.tokens === 3),
+);
 
 let gameWinner = null;
 let roundCount = 0;
@@ -1070,7 +1324,10 @@ for (const p of G.players) {
     }
 }
 assert('4P: All timelines chronologically sorted', allTimelinesValid);
-assert('4P: All scores match timeline lengths', G.players.every(p => p.score === p.timeline.length));
+assert(
+    '4P: All scores match timeline lengths',
+    G.players.every(p => p.score === p.timeline.length),
+);
 
 // ==================== FULL INTEGRATION: GAME WITH ALL FEATURES ====================
 section('Full Integration: Game with Tokens, Challenges, Claims');

@@ -1,243 +1,343 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="nb">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0a0a0f">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Hitster">
-    <title>Hitster</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="icons/icon-192.png" type="image/png">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-    <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-</head>
-<body>
-    <!-- Welcome Screen -->
-    <div id="screen-welcome" class="screen active">
-        <div class="screen-content">
-            <div class="logo">
-                <h1>HITSTER</h1>
-                <p class="subtitle">Plasser hitsen i riktig rekkefølge</p>
-            </div>
-            <div class="welcome-info">
-                <p>En musikkquiz der du plasserer sanger kronologisk på tidslinjen din. Førstemann til 10 kort vinner!</p>
-            </div>
-            <button class="btn btn-primary btn-large" onclick="App.showSetup()">Start spill</button>
-        </div>
-    </div>
-
-    <!-- Setup Screen -->
-    <div id="screen-setup" class="screen">
-        <div class="screen-content">
-            <h2>Spillere</h2>
-            <div id="player-list" class="player-list">
-                <div class="player-input-row">
-                    <input type="text" class="player-name-input" placeholder="Spiller 1" maxlength="15" autocapitalize="words" spellcheck="false" autocomplete="off">
-                    <button class="btn-icon btn-remove-player" onclick="App.removePlayer(this)" style="visibility:hidden" aria-label="Fjern spiller">&times;</button>
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover"
+        />
+        <meta name="theme-color" content="#0a0a0f" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Hitster" />
+        <title>Hitster</title>
+        <link rel="manifest" href="manifest.json" />
+        <link rel="icon" href="icons/icon-192.png" type="image/png" />
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>"
+            type="image/svg+xml"
+        />
+        <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+        <link rel="stylesheet" href="style.css" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+            rel="stylesheet"
+        />
+    </head>
+    <body>
+        <!-- Welcome Screen -->
+        <div id="screen-welcome" class="screen active">
+            <div class="screen-content">
+                <div class="logo">
+                    <h1>HITSTER</h1>
+                    <p class="subtitle">Plasser hitsen i riktig rekkefølge</p>
                 </div>
-                <div class="player-input-row">
-                    <input type="text" class="player-name-input" placeholder="Spiller 2" maxlength="15" autocapitalize="words" spellcheck="false" autocomplete="off">
-                    <button class="btn-icon btn-remove-player" onclick="App.removePlayer(this)" style="visibility:hidden" aria-label="Fjern spiller">&times;</button>
+                <div class="welcome-info">
+                    <p>
+                        En musikkquiz der du plasserer sanger kronologisk på tidslinjen din. Førstemann til 10 kort
+                        vinner!
+                    </p>
                 </div>
+                <button class="btn btn-primary btn-large" onclick="App.showSetup()">Start spill</button>
             </div>
-            <button class="btn btn-secondary btn-add-player" onclick="App.addPlayer()">+ Legg til spiller</button>
-
-            <div class="settings-section">
-                <h3>Innstillinger</h3>
-                <div class="setting-row">
-                    <label>Kort for å vinne</label>
-                    <div class="stepper">
-                        <button class="btn-icon" onclick="App.adjustWinCount(-1)" aria-label="Reduser antall kort">-</button>
-                        <span id="win-count">10</span>
-                        <button class="btn-icon" onclick="App.adjustWinCount(1)" aria-label="Øk antall kort">+</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="settings-section songs-section">
-                <h3>Sanger</h3>
-                <div class="song-source-info">
-                    <span class="song-source-badge" id="song-source-badge">Standard</span>
-                </div>
-                <div class="genre-chips" id="genre-chips"></div>
-                <details class="custom-playlist-details">
-                    <summary>Egen spilleliste</summary>
-                    <div class="song-url-row">
-                        <input type="text" id="playlist-url" placeholder="Lim inn Spotify-spilleliste URL" autocomplete="off">
-                        <button class="btn btn-secondary btn-sm" onclick="App.loadPlaylist()">Last</button>
-                    </div>
-                    <p class="songs-help-text" id="songs-help-text">Lim inn en Spotify-spilleliste for egne sanger.</p>
-                    <button class="btn-link" id="spotify-reset-btn" onclick="App.resetSongs()" style="display:none">Tilbake til standard</button>
-                </details>
-            </div>
-
-            <button class="btn btn-primary btn-large" onclick="App.startGame()">Start</button>
-            <button class="btn btn-ghost" onclick="App.showScreen('screen-welcome')">Tilbake</button>
-        </div>
-    </div>
-
-    <!-- Game Screen -->
-    <div id="screen-game" class="screen">
-        <div class="game-header">
-            <div class="game-header-top">
-                <div class="game-scores" id="game-scores"></div>
-                <button class="btn-hamburger" onclick="Game.toggleMenu()" aria-label="Spillkontroll-meny">
-                    <span></span><span></span><span></span>
-                </button>
-            </div>
-            <div class="current-turn" id="current-turn"></div>
         </div>
 
-        <div class="game-area">
-            <!-- Spotify Embed Player (hidden during gameplay) -->
-            <div class="spotify-player-wrapper" id="spotify-wrapper">
-                <div id="spotify-embed"></div>
-                <div class="player-cover" id="player-cover">
-                    <div class="listening-bars" id="listening-bars" style="display:none">
-                        <span></span><span></span><span></span><span></span><span></span>
-                    </div>
-                    <p class="listening-text">Trykk for å spille</p>
-                    <div class="playback-controls" id="playback-controls">
-                        <button class="control-btn" id="btn-replay" onclick="Game.replayFromStart()" title="Spill fra start" aria-label="Spill fra start">
-                            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+        <!-- Setup Screen -->
+        <div id="screen-setup" class="screen">
+            <div class="screen-content">
+                <h2>Spillere</h2>
+                <div id="player-list" class="player-list">
+                    <div class="player-input-row">
+                        <input
+                            type="text"
+                            class="player-name-input"
+                            placeholder="Spiller 1"
+                            maxlength="15"
+                            autocapitalize="words"
+                            spellcheck="false"
+                            autocomplete="off"
+                        />
+                        <button
+                            class="btn-icon btn-remove-player"
+                            onclick="App.removePlayer(this)"
+                            style="visibility: hidden"
+                            aria-label="Fjern spiller"
+                        >
+                            &times;
                         </button>
-                        <button class="control-btn control-btn-main" id="btn-play-pause" onclick="Game.togglePlay()" title="Spill/pause" aria-label="Spill eller pause">
-                            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                    </div>
+                    <div class="player-input-row">
+                        <input
+                            type="text"
+                            class="player-name-input"
+                            placeholder="Spiller 2"
+                            maxlength="15"
+                            autocapitalize="words"
+                            spellcheck="false"
+                            autocomplete="off"
+                        />
+                        <button
+                            class="btn-icon btn-remove-player"
+                            onclick="App.removePlayer(this)"
+                            style="visibility: hidden"
+                            aria-label="Fjern spiller"
+                        >
+                            &times;
                         </button>
                     </div>
                 </div>
-            </div>
+                <button class="btn btn-secondary btn-add-player" onclick="App.addPlayer()">+ Legg til spiller</button>
 
-            <!-- Timeline -->
-            <div class="timeline-container">
-                <h3 class="timeline-title" id="timeline-title">Din tidslinje</h3>
-                <div class="timeline" id="timeline"></div>
+                <div class="settings-section">
+                    <h3>Innstillinger</h3>
+                    <div class="setting-row">
+                        <label>Kort for å vinne</label>
+                        <div class="stepper">
+                            <button class="btn-icon" onclick="App.adjustWinCount(-1)" aria-label="Reduser antall kort">
+                                -
+                            </button>
+                            <span id="win-count">10</span>
+                            <button class="btn-icon" onclick="App.adjustWinCount(1)" aria-label="Øk antall kort">
+                                +
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section songs-section">
+                    <h3>Sanger</h3>
+                    <div class="song-source-info">
+                        <span class="song-source-badge" id="song-source-badge">Standard</span>
+                    </div>
+                    <div class="genre-chips" id="genre-chips"></div>
+                    <details class="custom-playlist-details">
+                        <summary>Egen spilleliste</summary>
+                        <div class="song-url-row">
+                            <input
+                                type="text"
+                                id="playlist-url"
+                                placeholder="Lim inn Spotify-spilleliste URL"
+                                autocomplete="off"
+                            />
+                            <button class="btn btn-secondary btn-sm" onclick="App.loadPlaylist()">Last</button>
+                        </div>
+                        <p class="songs-help-text" id="songs-help-text">
+                            Lim inn en Spotify-spilleliste for egne sanger.
+                        </p>
+                        <button
+                            class="btn-link"
+                            id="spotify-reset-btn"
+                            onclick="App.resetSongs()"
+                            style="display: none"
+                        >
+                            Tilbake til standard
+                        </button>
+                    </details>
+                </div>
+
+                <button class="btn btn-primary btn-large" onclick="App.startGame()">Start</button>
+                <button class="btn btn-ghost" onclick="App.showScreen('screen-welcome')">Tilbake</button>
             </div>
         </div>
 
-        <div class="game-actions" id="game-actions"></div>
-    </div>
+        <!-- Game Screen -->
+        <div id="screen-game" class="screen">
+            <div class="game-header">
+                <div class="game-header-top">
+                    <div class="game-scores" id="game-scores"></div>
+                    <button class="btn-hamburger" onclick="Game.toggleMenu()" aria-label="Spillkontroll-meny">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                </div>
+                <div class="current-turn" id="current-turn"></div>
+            </div>
 
-    <!-- Challenge Phase Overlay -->
-    <div id="challenge-overlay" class="overlay">
-        <div class="overlay-content" id="challenge-content">
-            <!-- Dynamic content from challenge flow -->
-        </div>
-    </div>
+            <div class="game-area">
+                <!-- Spotify Embed Player (hidden during gameplay) -->
+                <div class="spotify-player-wrapper" id="spotify-wrapper">
+                    <div id="spotify-embed"></div>
+                    <div class="player-cover" id="player-cover">
+                        <div class="listening-bars" id="listening-bars" style="display: none">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <p class="listening-text">Trykk for å spille</p>
+                        <div class="playback-controls" id="playback-controls">
+                            <button
+                                class="control-btn"
+                                id="btn-replay"
+                                onclick="Game.replayFromStart()"
+                                title="Spill fra start"
+                                aria-label="Spill fra start"
+                            >
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                                    <path
+                                        d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"
+                                    />
+                                </svg>
+                            </button>
+                            <button
+                                class="control-btn control-btn-main"
+                                id="btn-play-pause"
+                                onclick="Game.togglePlay()"
+                                title="Spill/pause"
+                                aria-label="Spill eller pause"
+                            >
+                                <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                                    <polygon points="5,3 19,12 5,21" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
-    <!-- Song Reveal (two-phase: pre-reveal then result) -->
-    <div id="song-reveal-overlay" class="overlay">
-        <div class="overlay-content">
-            <!-- Phase 1: Pre-reveal — quick decision point -->
-            <div id="pre-reveal">
-                <div class="pre-reveal-icon">🎵</div>
-                <h2>Plasseringen er låst!</h2>
-                <button class="btn btn-claim" id="btn-claim-title" onclick="Game.toggleTitleClaim()">🎤 Jeg vet tittel og artist (+1 🔶)</button>
-                <div class="pre-reveal-buttons">
-                    <button class="btn btn-primary btn-large" onclick="Game.skipChallenge()">Vis resultat</button>
-                    <button class="btn btn-ghost" id="btn-challenge" onclick="Game.startChallenge()">⚔️ Utfordre (1 🔶)</button>
+                <!-- Timeline -->
+                <div class="timeline-container">
+                    <h3 class="timeline-title" id="timeline-title">Din tidslinje</h3>
+                    <div class="timeline" id="timeline"></div>
                 </div>
             </div>
 
-            <!-- Phase 2: Result — shown after resolve -->
-            <div id="reveal-result" style="display:none">
-                <div id="reveal-result-icon" class="reveal-icon"></div>
-                <h2 id="reveal-title"></h2>
-                <p id="reveal-subtitle" class="reveal-subtitle"></p>
-                <div class="reveal-song-info" id="reveal-song-info">
-                    <p class="reveal-song-name" id="reveal-song-name"></p>
-                    <p class="reveal-song-artist" id="reveal-song-artist"></p>
-                    <p class="reveal-song-year-row"><span class="reveal-song-year" id="reveal-song-year"></span><button class="btn-edit-song" id="btn-edit-song" onclick="Game.gmStartEditSong()" title="Rediger sanginfo">✏️</button></p>
-                </div>
-                <div id="edit-song-form" class="edit-song-form" style="display:none">
-                    <div class="edit-song-field">
-                        <label>År</label>
-                        <input type="number" id="edit-song-year" inputmode="numeric">
-                    </div>
-                    <div class="edit-song-field">
-                        <label>Tittel</label>
-                        <input type="text" id="edit-song-title">
-                    </div>
-                    <div class="edit-song-field">
-                        <label>Artist</label>
-                        <input type="text" id="edit-song-artist-input">
-                    </div>
-                    <div class="edit-song-buttons">
-                        <button class="btn btn-primary btn-sm" onclick="Game.gmSaveEditSong()">Lagre</button>
-                        <button class="btn btn-ghost btn-sm" onclick="Game.gmCancelEditSong()">Avbryt</button>
-                    </div>
-                </div>
-                <div id="token-award-section" class="token-award-section" style="display:none">
-                    <p id="token-award-text" class="token-award-text"></p>
-                    <div id="token-award-buttons" class="token-award-buttons" style="display:none">
-                        <button class="btn btn-primary" onclick="Game.confirmTitleClaim(true)">✅ Riktig</button>
-                        <button class="btn btn-ghost" onclick="Game.confirmTitleClaim(false)">❌ Feil</button>
-                    </div>
-                </div>
-                <button class="btn btn-primary" id="btn-next-turn" onclick="Game.nextTurn()">Neste tur</button>
+            <div class="game-actions" id="game-actions"></div>
+        </div>
+
+        <!-- Challenge Phase Overlay -->
+        <div id="challenge-overlay" class="overlay">
+            <div class="overlay-content" id="challenge-content">
+                <!-- Dynamic content from challenge flow -->
             </div>
         </div>
-    </div>
 
-    <!-- Game Master Panel -->
-    <div id="gm-backdrop" class="gm-backdrop" onclick="Game.closeMenu()" role="presentation"></div>
-    <div id="gm-panel" class="gm-panel">
-        <div class="gm-panel-header">
-            <h3>Spillkontroll</h3>
-            <button class="gm-close" onclick="Game.closeMenu()" aria-label="Lukk meny">&times;</button>
+        <!-- Song Reveal (two-phase: pre-reveal then result) -->
+        <div id="song-reveal-overlay" class="overlay">
+            <div class="overlay-content">
+                <!-- Phase 1: Pre-reveal — quick decision point -->
+                <div id="pre-reveal">
+                    <div class="pre-reveal-icon">🎵</div>
+                    <h2>Plasseringen er låst!</h2>
+                    <button class="btn btn-claim" id="btn-claim-title" onclick="Game.toggleTitleClaim()">
+                        🎤 Jeg vet tittel og artist (+1 🔶)
+                    </button>
+                    <div class="pre-reveal-buttons">
+                        <button class="btn btn-primary btn-large" onclick="Game.skipChallenge()">Vis resultat</button>
+                        <button class="btn btn-ghost" id="btn-challenge" onclick="Game.startChallenge()">
+                            ⚔️ Utfordre (1 🔶)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Phase 2: Result — shown after resolve -->
+                <div id="reveal-result" style="display: none">
+                    <div id="reveal-result-icon" class="reveal-icon"></div>
+                    <h2 id="reveal-title"></h2>
+                    <p id="reveal-subtitle" class="reveal-subtitle"></p>
+                    <div class="reveal-song-info" id="reveal-song-info">
+                        <p class="reveal-song-name" id="reveal-song-name"></p>
+                        <p class="reveal-song-artist" id="reveal-song-artist"></p>
+                        <p class="reveal-song-year-row">
+                            <span class="reveal-song-year" id="reveal-song-year"></span>
+                            <button
+                                class="btn-edit-song"
+                                id="btn-edit-song"
+                                onclick="Game.gmStartEditSong()"
+                                title="Rediger sanginfo"
+                            >
+                                ✏️
+                            </button>
+                        </p>
+                    </div>
+                    <div id="edit-song-form" class="edit-song-form" style="display: none">
+                        <div class="edit-song-field">
+                            <label>År</label>
+                            <input type="number" id="edit-song-year" inputmode="numeric" />
+                        </div>
+                        <div class="edit-song-field">
+                            <label>Tittel</label>
+                            <input type="text" id="edit-song-title" />
+                        </div>
+                        <div class="edit-song-field">
+                            <label>Artist</label>
+                            <input type="text" id="edit-song-artist-input" />
+                        </div>
+                        <div class="edit-song-buttons">
+                            <button class="btn btn-primary btn-sm" onclick="Game.gmSaveEditSong()">Lagre</button>
+                            <button class="btn btn-ghost btn-sm" onclick="Game.gmCancelEditSong()">Avbryt</button>
+                        </div>
+                    </div>
+                    <div id="token-award-section" class="token-award-section" style="display: none">
+                        <p id="token-award-text" class="token-award-text"></p>
+                        <div id="token-award-buttons" class="token-award-buttons" style="display: none">
+                            <button class="btn btn-primary" onclick="Game.confirmTitleClaim(true)">✅ Riktig</button>
+                            <button class="btn btn-ghost" onclick="Game.confirmTitleClaim(false)">❌ Feil</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="btn-next-turn" onclick="Game.nextTurn()">Neste tur</button>
+                </div>
+            </div>
         </div>
-        <div class="gm-panel-body" id="gm-panel-body"></div>
-    </div>
 
-    <!-- Pass Phone Overlay -->
-    <div id="pass-phone-overlay" class="overlay">
-        <div class="overlay-content">
-            <div class="pass-phone-icon">&#128241;</div>
-            <h2>Gi telefonen til</h2>
-            <p class="pass-phone-name" id="pass-phone-name"></p>
-            <button class="btn btn-primary btn-large" onclick="Game.onPlayerReady()">Jeg er klar!</button>
+        <!-- Game Master Panel -->
+        <div id="gm-backdrop" class="gm-backdrop" onclick="Game.closeMenu()" role="presentation"></div>
+        <div id="gm-panel" class="gm-panel">
+            <div class="gm-panel-header">
+                <h3>Spillkontroll</h3>
+                <button class="gm-close" onclick="Game.closeMenu()" aria-label="Lukk meny">&times;</button>
+            </div>
+            <div class="gm-panel-body" id="gm-panel-body"></div>
         </div>
-    </div>
 
-    <!-- Winner Screen -->
-    <div id="screen-winner" class="screen">
-        <div class="screen-content">
-            <div class="winner-trophy">&#127942;</div>
-            <h1 id="winner-name"></h1>
-            <p class="winner-subtitle">vant spillet!</p>
-            <div id="final-scores" class="final-scores"></div>
-            <button class="btn btn-primary btn-large" onclick="App.restart()">Spill igjen</button>
-            <button class="btn btn-ghost" onclick="App.showScreen('screen-welcome')">Hovedmeny</button>
+        <!-- Pass Phone Overlay -->
+        <div id="pass-phone-overlay" class="overlay">
+            <div class="overlay-content">
+                <div class="pass-phone-icon">&#128241;</div>
+                <h2>Gi telefonen til</h2>
+                <p class="pass-phone-name" id="pass-phone-name"></p>
+                <button class="btn btn-primary btn-large" onclick="Game.onPlayerReady()">Jeg er klar!</button>
+            </div>
         </div>
-    </div>
 
-    <script src="https://open.spotify.com/embed/iframe-api/v1"></script>
-    <script src="songs.js"></script>
-    <script src="game.js"></script>
-    <script src="app.js"></script>
-    <script>
-        // Register Service Worker for PWA
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').then(reg => {
-                // Check for updates periodically
-                reg.addEventListener('updatefound', () => {
-                    const newWorker = reg.installing;
-                    newWorker.addEventListener('statechange', () => {
-                        if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-                            // New version available — the stale-while-revalidate strategy
-                            // ensures the next page load gets fresh assets
-                            console.log('Hitster oppdatert! Ny versjon klar ved neste lasting.');
-                        }
-                    });
-                });
-            }).catch(err => console.warn('SW registrering feilet:', err));
-        }
-    </script>
-</body>
+        <!-- Winner Screen -->
+        <div id="screen-winner" class="screen">
+            <div class="screen-content">
+                <div class="winner-trophy">&#127942;</div>
+                <h1 id="winner-name"></h1>
+                <p class="winner-subtitle">vant spillet!</p>
+                <div id="final-scores" class="final-scores"></div>
+                <button class="btn btn-primary btn-large" onclick="App.restart()">Spill igjen</button>
+                <button class="btn btn-ghost" onclick="App.showScreen('screen-welcome')">Hovedmeny</button>
+            </div>
+        </div>
+
+        <script src="https://open.spotify.com/embed/iframe-api/v1"></script>
+        <script type="module" src="main.js"></script>
+        <script>
+            // Register Service Worker for PWA
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker
+                    .register('./sw.js')
+                    .then(reg => {
+                        // Check for updates periodically
+                        reg.addEventListener('updatefound', () => {
+                            const newWorker = reg.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                                    // New version available — the stale-while-revalidate strategy
+                                    // ensures the next page load gets fresh assets
+                                    console.log('Hitster oppdatert! Ny versjon klar ved neste lasting.');
+                                }
+                            });
+                        });
+                    })
+                    .catch(err => console.warn('SW registrering feilet:', err));
+            }
+        </script>
+    </body>
 </html>

@@ -9,7 +9,7 @@ const App = {
     _loadGeneration: 0,
     _anonToken: null,
     _anonTokenExpiry: 0,
-    _selectedGenres: new Set(),    // Empty = all genres
+    _selectedGenres: new Set(), // Empty = all genres
     _usingCustomPlaylist: false,
 
     init() {
@@ -59,7 +59,7 @@ const App = {
         this.renderGenreChips();
 
         // Enter key support on setup screen: move to next input or start game
-        document.getElementById('player-list').addEventListener('keydown', (e) => {
+        document.getElementById('player-list').addEventListener('keydown', e => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 const inputs = document.querySelectorAll('#player-list .player-name-input');
@@ -197,7 +197,6 @@ const App = {
             badge.className = 'song-source-badge custom';
             this._showSongStatus(`${unique.length} sanger lastet fra "${playlistName}".`, 'success');
             resetBtn.style.display = '';
-
         } catch (err) {
             if (err.name === 'AbortError') return;
             badge.textContent = 'Feil';
@@ -224,10 +223,10 @@ const App = {
 
         // Fetch playlist name (with timeout, re-throw AbortError)
         try {
-            const nameResp = await fetch(
-                `https://api.spotify.com/v1/playlists/${playlistId}?fields=name`,
-                { headers: { 'Authorization': `Bearer ${token}` }, signal }
-            );
+            const nameResp = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}?fields=name`, {
+                headers: { Authorization: `Bearer ${token}` },
+                signal,
+            });
             if (nameResp.ok) {
                 const nameData = await nameResp.json();
                 playlistName = nameData.name || playlistName;
@@ -246,7 +245,7 @@ const App = {
             pages++;
 
             const response = await fetch(apiUrl, {
-                headers: { 'Authorization': `Bearer ${token}` },
+                headers: { Authorization: `Bearer ${token}` },
                 signal,
             });
 
@@ -259,7 +258,7 @@ const App = {
 
             const data = await response.json();
 
-            for (const item of (data.items || [])) {
+            for (const item of data.items || []) {
                 const track = item?.track;
                 if (!track || !track.id) continue;
 
@@ -333,9 +332,7 @@ const App = {
             if (signal.aborted) return { songs, name: playlistName };
 
             const batch = tracksToFetch.slice(i, i + BATCH_SIZE);
-            const results = await Promise.allSettled(
-                batch.map(track => this._fetchTrackReleaseDate(track, signal))
-            );
+            const results = await Promise.allSettled(batch.map(track => this._fetchTrackReleaseDate(track, signal)));
 
             for (let j = 0; j < results.length; j++) {
                 completed++;
@@ -360,7 +357,7 @@ const App = {
                 if (signal.aborted) break;
                 const batch = failed.slice(i, i + BATCH_SIZE);
                 const results = await Promise.allSettled(
-                    batch.map(track => this._fetchTrackReleaseDate(track, signal))
+                    batch.map(track => this._fetchTrackReleaseDate(track, signal)),
                 );
                 for (const r of results) {
                     if (r.status === 'fulfilled' && r.value) songs.push(r.value);
@@ -410,7 +407,11 @@ const App = {
             if (!match) return null;
 
             let nextData;
-            try { nextData = JSON.parse(match[1]); } catch (e) { return null; }
+            try {
+                nextData = JSON.parse(match[1]);
+            } catch (e) {
+                return null;
+            }
 
             const token = this._findToken(nextData);
             if (!token) return null;
@@ -510,7 +511,6 @@ const App = {
 
                 this._workingProxyIndex = idx;
                 return html;
-
             } catch (e) {
                 if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
                 errors.push(`P${idx}:${e.name === 'AbortError' ? 'timeout' : e.message}`);
@@ -601,7 +601,9 @@ const App = {
 
         // Check which genres actually exist in the database
         const availableGenres = new Set();
-        ALL_SONGS.forEach(s => { if (s.genre) availableGenres.add(s.genre); });
+        ALL_SONGS.forEach(s => {
+            if (s.genre) availableGenres.add(s.genre);
+        });
 
         // If no songs have genres, hide the chips
         if (availableGenres.size === 0) {
@@ -682,7 +684,9 @@ const App = {
 
         const minSongs = names.length + this.winCount;
         if (SONGS_DATABASE.length < minSongs) {
-            alert(`Trenger minst ${minSongs} sanger for ${names.length} spillere med ${this.winCount} kort. Har bare ${SONGS_DATABASE.length}.`);
+            alert(
+                `Trenger minst ${minSongs} sanger for ${names.length} spillere med ${this.winCount} kort. Har bare ${SONGS_DATABASE.length}.`,
+            );
             return;
         }
 

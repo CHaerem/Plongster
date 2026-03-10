@@ -24,8 +24,17 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Install dev dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
       - name: Run tests
-        run: node test.js
+        run: npm test
 
   deploy:
     needs: test
