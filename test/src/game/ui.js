@@ -5,6 +5,20 @@ import { escapeHtml } from '../utils.js';
 export const uiMethods = {
     escapeHtml,
 
+    // ─── Screen Reader Announcements ───
+
+    _announce(message) {
+        const el = document.getElementById('a11y-announcements');
+        if (!el) return;
+        // Clear then set to trigger announcement even if same text
+        el.textContent = '';
+        setTimeout(() => {
+            el.textContent = message;
+        }, 0);
+    },
+
+    // ─── Rendering ───
+
     renderScores() {
         const el = document.getElementById('game-scores');
         const chips = el.querySelectorAll('.score-chip');
@@ -14,7 +28,7 @@ export const uiMethods = {
             el.innerHTML = this.players
                 .map(
                     (p, i) => `
-                <div class="score-chip ${i === this.currentPlayerIndex ? 'active' : ''}">
+                <div class="score-chip ${i === this.currentPlayerIndex ? 'active' : ''}" aria-label="${escapeHtml(p.name)}: ${p.score} av ${this.cardsToWin} kort, ${p.tokens} poletter">
                     <span class="score-label">${escapeHtml(p.name)}: ${p.score}/${this.cardsToWin}</span>
                     <span class="token-count"><span class="token-icon">\u{1F536}</span>${p.tokens}</span>
                 </div>
@@ -25,6 +39,10 @@ export const uiMethods = {
             this.players.forEach((p, i) => {
                 const chip = chips[i];
                 chip.classList.toggle('active', i === this.currentPlayerIndex);
+                chip.setAttribute(
+                    'aria-label',
+                    `${p.name}: ${p.score} av ${this.cardsToWin} kort, ${p.tokens} poletter`,
+                );
                 const label = chip.querySelector('.score-label');
                 if (label) label.textContent = `${p.name}: ${p.score}/${this.cardsToWin}`;
                 const tokenEl = chip.querySelector('.token-count');
@@ -44,6 +62,7 @@ export const uiMethods = {
     renderCurrentTurn() {
         const el = document.getElementById('current-turn');
         el.innerHTML = `<strong>${escapeHtml(this.currentPlayer.name)}</strong> sin tur`;
+        this._announce(`${this.currentPlayer.name} sin tur`);
     },
 
     _renderTimelineHTML(player, showDropZones, dropClickFn, disabledDropIndices) {
@@ -58,23 +77,36 @@ export const uiMethods = {
                   : new Set();
         /* eslint-enable eqeqeq */
 
+        // Build aria-labels based on surrounding years
+        const dropAriaLabel = index => {
+            if (timeline.length === 0) return 'Plasser sang her';
+            if (index === 0) {
+                return `Plasser før ${timeline[0].year}`;
+            }
+            if (index === timeline.length) {
+                return `Plasser etter ${timeline[timeline.length - 1].year}`;
+            }
+            return `Plasser mellom ${timeline[index - 1].year} og ${timeline[index].year}`;
+        };
+
         if (showDropZones) {
             const isDisabled = disabledSet.has(0);
             const label = timeline.length === 0 ? 'Plasser her' : 'Eldst';
             if (isDisabled) {
-                html += `<div class="drop-zone disabled"><span>\u{1F6AB} Opptatt</span></div>`;
+                html += `<div class="drop-zone disabled" aria-disabled="true"><span>\u{1F6AB} Opptatt</span></div>`;
             } else {
-                html += `<div class="drop-zone" onclick="${dropClickFn}(0)"><span>${label}</span></div>`;
+                html += `<div class="drop-zone" role="button" tabindex="0" aria-label="${dropAriaLabel(0)}" onclick="${dropClickFn}(0)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${dropClickFn}(0)}"><span>${label}</span></div>`;
             }
         }
 
         for (let i = 0; i < timeline.length; i++) {
             const card = timeline[i];
+            const altText = card.coverUrl ? `${escapeHtml(card.title)} av ${escapeHtml(card.artist)}` : '';
             const coverImg = card.coverUrl
-                ? `<img src="${card.coverUrl}" alt="" class="card-cover" loading="lazy">`
+                ? `<img src="${card.coverUrl}" alt="${altText}" class="card-cover" loading="lazy">`
                 : '';
             html += `
-                <div class="timeline-card">
+                <div class="timeline-card" role="listitem">
                     ${coverImg}
                     <span class="card-year">${card.year}</span>
                     <div class="card-info">
@@ -89,9 +121,9 @@ export const uiMethods = {
                 const isDisabled = disabledSet.has(dropIndex);
                 const label = i === timeline.length - 1 ? 'Nyest' : '';
                 if (isDisabled) {
-                    html += `<div class="drop-zone disabled"><span>\u{1F6AB} Opptatt</span></div>`;
+                    html += `<div class="drop-zone disabled" aria-disabled="true"><span>\u{1F6AB} Opptatt</span></div>`;
                 } else {
-                    html += `<div class="drop-zone" onclick="${dropClickFn}(${dropIndex})"><span>${label || 'Plasser her'}</span></div>`;
+                    html += `<div class="drop-zone" role="button" tabindex="0" aria-label="${dropAriaLabel(dropIndex)}" onclick="${dropClickFn}(${dropIndex})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${dropClickFn}(${dropIndex})}"><span>${label || 'Plasser her'}</span></div>`;
                 }
             }
         }
