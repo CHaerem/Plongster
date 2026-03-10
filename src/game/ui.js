@@ -7,16 +7,38 @@ export const uiMethods = {
 
     renderScores() {
         const el = document.getElementById('game-scores');
-        el.innerHTML = this.players
-            .map(
-                (p, i) => `
-            <div class="score-chip ${i === this.currentPlayerIndex ? 'active' : ''}">
-                ${escapeHtml(p.name)}: ${p.score}
-                <span class="token-count"><span class="token-icon">\u{1F536}</span>${p.tokens}</span>
-            </div>
-        `,
-            )
-            .join('');
+        const chips = el.querySelectorAll('.score-chip');
+
+        // Rebuild only if player count changed, otherwise update in-place
+        if (chips.length !== this.players.length) {
+            el.innerHTML = this.players
+                .map(
+                    (p, i) => `
+                <div class="score-chip ${i === this.currentPlayerIndex ? 'active' : ''}">
+                    <span class="score-label">${escapeHtml(p.name)}: ${p.score}/${this.cardsToWin}</span>
+                    <span class="token-count"><span class="token-icon">\u{1F536}</span>${p.tokens}</span>
+                </div>
+            `,
+                )
+                .join('');
+        } else {
+            this.players.forEach((p, i) => {
+                const chip = chips[i];
+                chip.classList.toggle('active', i === this.currentPlayerIndex);
+                const label = chip.querySelector('.score-label');
+                if (label) label.textContent = `${p.name}: ${p.score}/${this.cardsToWin}`;
+                const tokenEl = chip.querySelector('.token-count');
+                if (tokenEl) tokenEl.lastChild.textContent = p.tokens;
+            });
+        }
+        this.renderGameInfo();
+    },
+
+    renderGameInfo() {
+        const el = document.getElementById('game-info-bar');
+        if (!el) return;
+        const remaining = this.deck ? this.deck.length : 0;
+        el.innerHTML = `<span>${remaining} kort igjen i bunken</span>`;
     },
 
     renderCurrentTurn() {
@@ -48,8 +70,12 @@ export const uiMethods = {
 
         for (let i = 0; i < timeline.length; i++) {
             const card = timeline[i];
+            const coverImg = card.coverUrl
+                ? `<img src="${card.coverUrl}" alt="" class="card-cover" loading="lazy">`
+                : '';
             html += `
                 <div class="timeline-card">
+                    ${coverImg}
                     <span class="card-year">${card.year}</span>
                     <div class="card-info">
                         <div class="card-title">${escapeHtml(card.title)}</div>
@@ -120,5 +146,20 @@ export const uiMethods = {
     _hideOverlay(id) {
         document.getElementById(id).classList.remove('active');
         this._updateScrollLock();
+    },
+
+    _showNotification(message, duration) {
+        const toast = document.getElementById('notification-toast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.style.display = '';
+        toast.classList.add('visible');
+        if (this._notificationTimeout) clearTimeout(this._notificationTimeout);
+        this._notificationTimeout = setTimeout(() => {
+            toast.classList.remove('visible');
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 300);
+        }, duration || 3000);
     },
 };

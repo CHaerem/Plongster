@@ -158,14 +158,15 @@ body {
     color: var(--text);
     border: none;
     cursor: pointer;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 18px;
     font-family: inherit;
+    touch-action: manipulation;
 }
 
 .btn-danger {
@@ -226,6 +227,8 @@ h3 {
     background: transparent;
     color: var(--danger);
     font-size: 22px;
+    min-width: 44px;
+    min-height: 44px;
 }
 
 .btn-add-player {
@@ -387,6 +390,38 @@ h3 {
 
 .spotify-playlists {
     margin-bottom: 12px;
+}
+
+.playlist-search {
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+}
+
+.playlist-search:focus {
+    border-color: var(--accent);
+}
+
+.playlist-search::placeholder {
+    color: var(--text-dim);
+}
+
+.playlist-status {
+    color: var(--text-dim);
+    padding: 12px 8px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.playlist-error {
+    color: var(--danger);
 }
 
 .spotify-playlist-grid {
@@ -715,9 +750,13 @@ h3 {
     background: none;
     border: none;
     cursor: pointer;
-    padding: 8px;
+    padding: 12px;
+    min-width: 44px;
+    min-height: 44px;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
     gap: 4px;
     touch-action: manipulation;
 }
@@ -749,13 +788,19 @@ h3 {
 
 .score-chip {
     flex-shrink: 0;
-    padding: 6px 12px;
+    padding: 8px 14px;
     border-radius: 20px;
     font-size: 13px;
     font-weight: 600;
     background: var(--bg-card);
     color: var(--text-dim);
     white-space: nowrap;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    transition:
+        background 0.2s,
+        color 0.2s;
 }
 
 .score-chip.active {
@@ -765,13 +810,34 @@ h3 {
 
 .current-turn {
     text-align: center;
-    font-size: 14px;
-    color: var(--text-dim);
-    padding-top: 4px;
+    font-size: 15px;
+    color: var(--text);
+    padding: 8px 16px;
+    background: rgba(29, 185, 84, 0.1);
+    border-radius: var(--radius-sm);
+    margin: 0 16px;
 }
 
 .current-turn strong {
-    color: var(--text);
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.game-info-bar {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 2px 16px 0;
+    opacity: 0.7;
+}
+
+.help-tooltip {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 12px;
+    line-height: 1.5;
+    opacity: 0.7;
 }
 
 .game-area {
@@ -826,6 +892,18 @@ h3 {
     border-radius: var(--radius-sm);
     position: relative;
     margin-left: 0;
+    animation: card-appear 0.25s ease-out;
+}
+
+@keyframes card-appear {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .timeline-card::before {
@@ -837,6 +915,15 @@ h3 {
     border-radius: 50%;
     background: var(--purple);
     border: 2px solid var(--bg);
+}
+
+.timeline-card .card-cover {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    object-fit: cover;
+    margin-right: 10px;
+    flex-shrink: 0;
 }
 
 .timeline-card .card-year {
@@ -951,6 +1038,16 @@ h3 {
 
 .overlay.active {
     display: flex;
+    animation: overlay-fade 0.2s ease-out;
+}
+
+@keyframes overlay-fade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 /* Prevent background scroll when overlay is open */
@@ -986,6 +1083,15 @@ body.overlay-active {
 
 .reveal-song-info {
     margin: 20px 0;
+}
+
+.reveal-song-cover {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    object-fit: cover;
+    margin: 0 auto 12px;
+    display: block;
 }
 
 .reveal-song-name {
@@ -1864,4 +1970,46 @@ body.overlay-active {
     .screen-content {
         padding: 24px 16px;
     }
+}
+
+/* ─── Offline Banner ─── */
+
+.offline-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: var(--warning);
+    color: #000;
+    text-align: center;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* ─── Notification Toast ─── */
+
+.notification-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 20px;
+    font-size: 14px;
+    z-index: 9998;
+    opacity: 0;
+    transition:
+        opacity 0.3s,
+        transform 0.3s;
+    pointer-events: none;
+}
+
+.notification-toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
 }
