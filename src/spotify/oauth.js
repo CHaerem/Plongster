@@ -186,27 +186,49 @@ export async function handleCallback() {
  * Refresh the access token using the refresh token.
  */
 async function refreshToken(refreshTokenValue) {
-    const response = await fetch(SPOTIFY_CONFIG.tokenUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-            client_id: SPOTIFY_CONFIG.clientId,
-            grant_type: 'refresh_token',
-            refresh_token: refreshTokenValue,
-        }),
-    });
+    const MAX_RETRIES = 2;
+    let lastError;
 
-    if (!response.ok) {
-        throw new Error(`Token refresh failed: ${response.status}`);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const response = await fetch(SPOTIFY_CONFIG.tokenUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    client_id: SPOTIFY_CONFIG.clientId,
+                    grant_type: 'refresh_token',
+                    refresh_token: refreshTokenValue,
+                }),
+            });
+
+            if (response.status === 429) {
+                const retryAfter = response.headers.get('Retry-After');
+                const delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : 1000 * 2 ** attempt;
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            }
+
+            if (!response.ok) {
+                throw new Error(`Token refresh failed: ${response.status}`);
+            }
+
+            const tokenData = await response.json();
+            if (!tokenData.refresh_token) {
+                tokenData.refresh_token = refreshTokenValue;
+            }
+            const record = storeToken(tokenData);
+            return record.access_token;
+        } catch (e) {
+            lastError = e;
+            if (attempt < MAX_RETRIES) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt));
+                continue;
+            }
+            break;
+        }
     }
 
-    const tokenData = await response.json();
-    // Spotify may or may not return a new refresh token
-    if (!tokenData.refresh_token) {
-        tokenData.refresh_token = refreshTokenValue;
-    }
-    const record = storeToken(tokenData);
-    return record.access_token;
+    throw lastError || new Error('Token refresh failed');
 }
 
 async function fetchAndStoreUser(accessToken) {
