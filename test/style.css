@@ -1948,6 +1948,325 @@ body.overlay-active {
     width: 100%;
 }
 
+/* ─── How to Play Guide ─── */
+
+.guide-header {
+    text-align: center;
+    margin-bottom: 24px;
+    width: 100%;
+}
+
+.guide-header h2 {
+    margin-bottom: 16px;
+}
+
+.guide-progress {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+.guide-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    transition: all 0.3s;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+}
+
+.guide-dot.active {
+    background: var(--accent);
+    width: 24px;
+    border-radius: 4px;
+}
+
+.guide-carousel {
+    width: 100%;
+    position: relative;
+    min-height: 340px;
+}
+
+.guide-step {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    animation: guideFadeIn 0.3s ease-out;
+}
+
+.guide-step.active {
+    display: flex;
+}
+
+@keyframes guideFadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.guide-icon {
+    font-size: 56px;
+    margin-bottom: 16px;
+}
+
+.guide-step-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 12px;
+}
+
+.guide-text {
+    color: var(--text-dim);
+    font-size: 15px;
+    line-height: 1.6;
+    max-width: 320px;
+    margin-bottom: 24px;
+}
+
+.guide-visual {
+    width: 100%;
+    max-width: 320px;
+}
+
+/* Demo timeline cards */
+.guide-timeline-demo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.guide-demo-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.guide-demo-card.highlight {
+    background: rgba(29, 185, 84, 0.12);
+    border-color: var(--accent);
+}
+
+.guide-demo-card.small {
+    padding: 8px 14px;
+}
+
+.guide-demo-year {
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--accent);
+    min-width: 40px;
+}
+
+.guide-demo-title {
+    font-size: 14px;
+    color: var(--text);
+}
+
+.guide-demo-dropzone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius-sm);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+    background: rgba(29, 185, 84, 0.08);
+    animation: dropzonePulse 2s ease-in-out infinite;
+}
+
+@keyframes dropzonePulse {
+    0%,
+    100% {
+        border-color: rgba(29, 185, 84, 0.4);
+    }
+    50% {
+        border-color: var(--accent);
+        background: rgba(29, 185, 84, 0.12);
+    }
+}
+
+/* Demo player */
+.guide-player-demo {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.guide-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 5px;
+    height: 36px;
+}
+
+.guide-bars span {
+    width: 6px;
+    background: var(--accent);
+    border-radius: 3px;
+    animation: barBounce 1s ease-in-out infinite;
+}
+
+.guide-bars span:nth-child(1) {
+    height: 10px;
+    animation-delay: 0s;
+}
+.guide-bars span:nth-child(2) {
+    height: 20px;
+    animation-delay: 0.15s;
+}
+.guide-bars span:nth-child(3) {
+    height: 30px;
+    animation-delay: 0.3s;
+}
+.guide-bars span:nth-child(4) {
+    height: 16px;
+    animation-delay: 0.45s;
+}
+.guide-bars span:nth-child(5) {
+    height: 24px;
+    animation-delay: 0.6s;
+}
+
+.guide-demo-label {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-style: italic;
+}
+
+/* Challenge demo */
+.guide-challenge-demo {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+}
+
+.guide-challenge-vs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.guide-player-a,
+.guide-player-b {
+    font-weight: 700;
+    font-size: 15px;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.guide-player-a {
+    color: var(--accent);
+}
+
+.guide-player-b {
+    color: var(--purple);
+}
+
+.guide-vs {
+    font-weight: 900;
+    font-size: 18px;
+    color: var(--warning);
+}
+
+/* Tokens demo */
+.guide-tokens-demo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.guide-token-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    color: var(--text);
+}
+
+.guide-token-row.earn {
+    background: rgba(29, 185, 84, 0.08);
+}
+
+.guide-token-cost {
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.guide-token-row.earn .guide-token-cost {
+    color: var(--accent);
+}
+
+/* Win demo */
+.guide-win-demo {
+    text-align: center;
+    padding: 24px;
+}
+
+.guide-win-trophy {
+    font-size: 64px;
+    margin-bottom: 8px;
+    animation: trophyBounce 2s ease-in-out infinite;
+}
+
+@keyframes trophyBounce {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.guide-win-text {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--accent);
+}
+
+/* Guide navigation */
+.guide-nav {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    max-width: 320px;
+    margin-top: 24px;
+}
+
+.guide-nav-btn {
+    flex: 1;
+}
+
+#guide-prev {
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
 /* PWA Standalone Mode */
 @media (display-mode: standalone) {
     /* Extra top padding for notch/status bar area */
