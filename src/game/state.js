@@ -2,6 +2,7 @@
 
 import { getSongs } from '../songs.js';
 import { shuffleArray } from '../utils.js';
+import { Phase } from './phases.js';
 
 export const stateMethods = {
     saveState() {
@@ -15,6 +16,7 @@ export const stateMethods = {
             isWaitingForPlacement: this.isWaitingForPlacement,
             challengePhase: this.challengePhase,
             titleArtistClaimed: this.titleArtistClaimed,
+            gamePhase: this.gamePhase,
         };
         try {
             localStorage.setItem('hitster-game', JSON.stringify(state));
@@ -62,6 +64,17 @@ export const stateMethods = {
             this.challengePhase = state.challengePhase || null;
             this.titleArtistClaimed = !!state.titleArtistClaimed;
             this._challengerMode = false;
+
+            // Restore gamePhase, falling back to inferring from booleans
+            if (state.gamePhase && Object.values(Phase).includes(state.gamePhase)) {
+                this.gamePhase = state.gamePhase;
+            } else if (this.challengePhase) {
+                this.gamePhase = Phase.PRE_REVEAL;
+            } else if (this.currentSong) {
+                this.gamePhase = this.hasPlayedSong ? Phase.PLACING : Phase.LISTENING;
+            } else {
+                this.gamePhase = Phase.PASS_PHONE;
+            }
 
             // Backwards compatibility: migrate old challengePhase format
             if (this.challengePhase && !Array.isArray(this.challengePhase.challengers)) {

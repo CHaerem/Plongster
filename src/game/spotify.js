@@ -1,6 +1,8 @@
 // Spotify embed playback control
 // Manages the IFrame API controller, loading, retries, and UI state
 
+import { Phase, transition } from './phases.js';
+
 export const spotifyMethods = {
     _loadGeneration: 0,
     _loadTimeout: null,
@@ -85,6 +87,9 @@ export const spotifyMethods = {
                 this._updatePlaybackUI('playing');
                 if (!this.hasPlayedSong) {
                     this.hasPlayedSong = true;
+                    if (this.gamePhase === Phase.LISTENING) {
+                        this.gamePhase = transition(this.gamePhase, Phase.PLACING);
+                    }
                     this.renderTimeline();
                     this.renderGameActions();
                 }

@@ -83,6 +83,7 @@
             import { spotifyMethods } from './src/game/spotify.js';
             import { stateMethods } from './src/game/state.js';
             import { gmMethods } from './src/game/gm-panel.js';
+            import { Phase } from './src/game/phases.js';
             import { setSongs } from './src/songs.js';
 
             // Set up songs store so Game.init() can access them
@@ -104,6 +105,7 @@
                 _isPlaying: false,
                 challengePhase: null,
                 titleArtistClaimed: false,
+                gamePhase: Phase.IDLE,
                 MAX_TOKENS: 5,
             };
             [engineMethods, uiMethods, spotifyMethods, stateMethods, gmMethods].forEach(methods => {
