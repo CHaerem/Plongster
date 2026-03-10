@@ -1882,3 +1882,45 @@ body.overlay-active {
         padding: 24px 16px;
     }
 }
+
+/* ─── Offline Banner ─── */
+
+.offline-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    background: var(--warning);
+    color: #000;
+    text-align: center;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* ─── Notification Toast ─── */
+
+.notification-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 20px;
+    font-size: 14px;
+    z-index: 9998;
+    opacity: 0;
+    transition:
+        opacity 0.3s,
+        transform 0.3s;
+    pointer-events: none;
+}
+
+.notification-toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}

@@ -74,10 +74,30 @@ if (clientIdMeta) {
     setClientId(clientIdMeta.content);
 }
 
+// ─── Network status detection ───
+
+function updateOfflineBanner() {
+    const banner = document.getElementById('offline-banner');
+    if (banner) banner.style.display = navigator.onLine ? 'none' : '';
+}
+
+window.addEventListener('online', () => {
+    updateOfflineBanner();
+    Game._showNotification('Tilkoblet igjen');
+});
+
+window.addEventListener('offline', () => {
+    updateOfflineBanner();
+    if (Game._isPlaying) {
+        Game.pausePlayback();
+    }
+});
+
 // Handle OAuth callback before app init
 (async () => {
     if (window.location.search.includes('code=')) {
         await handleCallback();
     }
     App.init();
+    updateOfflineBanner();
 })();

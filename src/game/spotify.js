@@ -223,15 +223,18 @@ export const spotifyMethods = {
 
             case 'error':
                 playPauseBtn.innerHTML = playIcon;
-                playPauseBtn.disabled = true;
-                playPauseBtn.style.opacity = '0.4';
+                playPauseBtn.disabled = false;
+                playPauseBtn.style.opacity = '';
                 if (replayBtn) {
-                    replayBtn.disabled = true;
-                    replayBtn.style.opacity = '0.4';
+                    replayBtn.disabled = false;
+                    replayBtn.style.opacity = '';
                 }
                 bars.style.display = 'none';
                 controls.style.display = 'flex';
-                text.textContent = 'Spotify kunne ikke lastes. Sjekk at adblocker ikke blokkerer.';
+                text.innerHTML =
+                    'Spotify kunne ikke lastes.<br>' +
+                    '<button class="btn btn-ghost btn-sm" onclick="Game.replayFromStart()" style="margin-top:8px">Prøv igjen</button> ' +
+                    '<button class="btn btn-ghost btn-sm" onclick="Game.skipSong()" style="margin-top:8px">Hopp over</button>';
                 break;
         }
     },

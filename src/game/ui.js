@@ -130,4 +130,19 @@ export const uiMethods = {
         document.getElementById(id).classList.remove('active');
         this._updateScrollLock();
     },
+
+    _showNotification(message, duration) {
+        const toast = document.getElementById('notification-toast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.style.display = '';
+        toast.classList.add('visible');
+        if (this._notificationTimeout) clearTimeout(this._notificationTimeout);
+        this._notificationTimeout = setTimeout(() => {
+            toast.classList.remove('visible');
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 300);
+        }, duration || 3000);
+    },
 };
