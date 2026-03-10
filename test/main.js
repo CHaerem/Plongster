@@ -7,6 +7,7 @@ import { uiMethods } from './src/game/ui.js';
 import { spotifyMethods } from './src/game/spotify.js';
 import { stateMethods } from './src/game/state.js';
 import { gmMethods } from './src/game/gm-panel.js';
+import { Phase } from './src/game/phases.js';
 import { setClientId } from './src/spotify/config.js';
 import { handleCallback } from './src/spotify/oauth.js';
 
@@ -28,6 +29,7 @@ const Game = {
     _isPlaying: false,
     challengePhase: null,
     titleArtistClaimed: false,
+    gamePhase: Phase.IDLE,
     MAX_TOKENS: 5,
 };
 

@@ -93,6 +93,12 @@ vm.runInContext(
 
 // 4. Game modules — load and expose method objects
 vm.runInContext(
+    '(function(){' +
+        readModule('src/game/phases.js') +
+        '\nthis.Phase=Phase;this.isValidTransition=isValidTransition;this.transition=transition;\n}).call(this);',
+    ctx,
+);
+vm.runInContext(
     '(function(){' + readModule('src/game/state.js') + '\nthis.stateMethods=stateMethods;\n}).call(this);',
     ctx,
 );
@@ -128,6 +134,7 @@ vm.runInContext(
         _isPlaying: false,
         challengePhase: null,
         titleArtistClaimed: false,
+        gamePhase: Phase.IDLE,
         MAX_TOKENS: 5,
     };
     // Use defineProperties to preserve getters (e.g., currentPlayer)

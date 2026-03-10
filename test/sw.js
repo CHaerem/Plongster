@@ -1,7 +1,7 @@
 // Hitster Service Worker
 // Caches app shell for offline/installable PWA experience
 
-const CACHE_VERSION = 'hitster-v31';
+const CACHE_VERSION = 'hitster-v32';
 
 // App shell — files needed for the app to work
 const APP_SHELL = [
@@ -18,6 +18,7 @@ const APP_SHELL = [
     '/src/game/spotify.js',
     '/src/game/state.js',
     '/src/game/gm-panel.js',
+    '/src/game/phases.js',
     '/src/spotify/auth.js',
     '/src/spotify/playlist.js',
     '/src/spotify/cors-proxy.js',

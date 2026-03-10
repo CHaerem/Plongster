@@ -2,6 +2,7 @@
 
 import { getSongs } from '../songs.js';
 import { escapeHtml, shuffleArray } from '../utils.js';
+import { Phase, transition } from './phases.js';
 
 export const engineMethods = {
     // Initialize a new game
@@ -18,6 +19,7 @@ export const engineMethods = {
         this._apiRetryCount = 0;
         this.challengePhase = null;
         this.titleArtistClaimed = false;
+        this.gamePhase = Phase.IDLE;
 
         this.players = playerNames.map(name => {
             const startCard = this.drawSong();
@@ -62,6 +64,7 @@ export const engineMethods = {
     },
 
     endGameNoSongs() {
+        this.gamePhase = transition(this.gamePhase, Phase.GAME_OVER);
         this.pausePlayback();
         const winner = [...this.players].sort((a, b) => b.score - a.score)[0];
         document.getElementById('winner-name').textContent = winner.name;
@@ -101,6 +104,7 @@ export const engineMethods = {
             this.currentSong = this.drawSong();
             if (!this.currentSong) return;
         }
+        this.gamePhase = transition(this.gamePhase, Phase.LISTENING);
         this.isWaitingForPlacement = true;
         this.selectedDropIndex = null;
         this.hasPlayedSong = false;
@@ -121,6 +125,7 @@ export const engineMethods = {
             this._updatePlaybackUI('error');
             document.querySelector('.listening-text').textContent = 'Sangen har ingen avspillings-ID.';
             this.hasPlayedSong = true;
+            this.gamePhase = transition(this.gamePhase, Phase.PLACING);
             this.renderTimeline();
         }
     },
@@ -174,6 +179,7 @@ export const engineMethods = {
     },
 
     showPlacementConfirmation(index) {
+        this.gamePhase = transition(this.gamePhase, Phase.PLACEMENT_CONFIRM);
         this._showPlacementDialog(
             index,
             this.currentPlayer.timeline,
@@ -183,6 +189,7 @@ export const engineMethods = {
     },
 
     cancelPlacement() {
+        this.gamePhase = transition(this.gamePhase, Phase.PLACING);
         const existing = document.querySelector('.confirm-placement');
         if (existing) existing.remove();
         this.selectedDropIndex = null;
@@ -197,6 +204,7 @@ export const engineMethods = {
             this.selectedDropIndex = null;
             this.isWaitingForPlacement = false;
             this.pausePlayback();
+            this.gamePhase = transition(this.gamePhase, Phase.PRE_REVEAL);
 
             this.challengePhase = {
                 originalPlayerIndex: this.currentPlayerIndex,
@@ -345,6 +353,7 @@ export const engineMethods = {
     },
 
     cancelChallengeRefund() {
+        this.gamePhase = transition(this.gamePhase, Phase.PRE_REVEAL);
         const cp = this.challengePhase;
         if (cp && cp.challengers.length > 0) {
             const current = cp.challengers[cp.currentChallengerIdx];
@@ -363,6 +372,7 @@ export const engineMethods = {
     },
 
     cancelChallengeFromTimeline() {
+        this.gamePhase = transition(this.gamePhase, Phase.PRE_REVEAL);
         const cp = this.challengePhase;
         if (cp && cp.challengers.length > 0) {
             const current = cp.challengers[cp.currentChallengerIdx];
@@ -401,6 +411,7 @@ export const engineMethods = {
     },
 
     _showPassPhoneForChallenger() {
+        this.gamePhase = transition(this.gamePhase, Phase.CHALLENGER_PASS);
         const cp = this.challengePhase;
         const challenger = cp.challengers[cp.currentChallengerIdx];
         const challengerName = escapeHtml(this.players[challenger.playerIndex].name);
@@ -421,6 +432,7 @@ export const engineMethods = {
     showChallengerTimeline() {
         this._hideOverlay('challenge-overlay');
         this._hideOverlay('song-reveal-overlay');
+        this.gamePhase = transition(this.gamePhase, Phase.CHALLENGER_PLACING);
 
         this._challengerMode = true;
         this.isWaitingForPlacement = true;
@@ -478,6 +490,7 @@ export const engineMethods = {
     },
 
     showChallengerPlacementConfirmation(index) {
+        this.gamePhase = transition(this.gamePhase, Phase.CHALLENGER_CONFIRM);
         const originalPlayer = this.players[this.challengePhase.originalPlayerIndex];
         this._showPlacementDialog(
             index,
@@ -488,6 +501,7 @@ export const engineMethods = {
     },
 
     cancelChallengerPlacement() {
+        this.gamePhase = transition(this.gamePhase, Phase.CHALLENGER_PLACING);
         const existing = document.querySelector('.confirm-placement');
         if (existing) existing.remove();
         this.selectedDropIndex = null;
@@ -502,6 +516,7 @@ export const engineMethods = {
             this.selectedDropIndex = null;
             this.isWaitingForPlacement = false;
             this._challengerMode = false;
+            this.gamePhase = transition(this.gamePhase, Phase.PRE_REVEAL);
 
             const cp = this.challengePhase;
             cp.challengers[cp.currentChallengerIdx].dropIndex = idx;
@@ -518,6 +533,7 @@ export const engineMethods = {
     // ─── Resolution ───
 
     showReveal(result) {
+        this.gamePhase = transition(this.gamePhase, Phase.REVEAL);
         this._hideOverlay('challenge-overlay');
         this._showOverlay('song-reveal-overlay');
 
@@ -692,22 +708,27 @@ export const engineMethods = {
             return;
         }
 
+        this.gamePhase = transition(this.gamePhase, Phase.PASS_PHONE);
         this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
         this.saveState();
         this.showPassPhone();
     },
 
     showPassPhone() {
+        if (this.gamePhase !== Phase.PASS_PHONE) {
+            this.gamePhase = Phase.PASS_PHONE;
+        }
         document.getElementById('pass-phone-name').textContent = this.currentPlayer.name;
         this._showOverlay('pass-phone-overlay');
     },
 
     onPlayerReady() {
         this._hideOverlay('pass-phone-overlay');
-        this.startTurn();
+        this.startTurn(); // startTurn sets LISTENING phase
     },
 
     showWinner(winner) {
+        this.gamePhase = transition(this.gamePhase, Phase.GAME_OVER);
         this.stopPlayback();
         this.clearState();
         document.getElementById('winner-name').textContent = winner.name;
