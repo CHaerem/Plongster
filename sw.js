@@ -1,7 +1,7 @@
 // Hitster Service Worker
 // Caches app shell for offline/installable PWA experience
 
-const CACHE_VERSION = 'hitster-v33';
+const CACHE_VERSION = 'hitster-v34';
 
 // App shell — files needed for the app to work
 const APP_SHELL = [

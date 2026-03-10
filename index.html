@@ -187,14 +187,14 @@
         <div id="screen-game" class="screen">
             <div class="game-header">
                 <div class="game-header-top">
-                    <div class="game-scores" id="game-scores"></div>
+                    <div class="game-scores" id="game-scores" role="status" aria-label="Poeng"></div>
                     <button class="btn-hamburger" onclick="Game.toggleMenu()" aria-label="Spillkontroll-meny">
                         <span></span>
                         <span></span>
                         <span></span>
                     </button>
                 </div>
-                <div class="current-turn" id="current-turn"></div>
+                <div class="current-turn" id="current-turn" role="status" aria-live="polite"></div>
                 <div class="game-info-bar" id="game-info-bar"></div>
             </div>
 
@@ -243,7 +243,7 @@
                 <!-- Timeline -->
                 <div class="timeline-container">
                     <h3 class="timeline-title" id="timeline-title">Din tidslinje</h3>
-                    <div class="timeline" id="timeline"></div>
+                    <div class="timeline" id="timeline" role="list" aria-label="Tidslinje"></div>
                 </div>
             </div>
 
@@ -274,8 +274,8 @@
                         </button>
                     </div>
                     <p class="help-tooltip" id="help-tooltip-challenge">
-                        Utfordre = en annen spiller satser 1 🔶 på at de kan plassere sangen riktig.
-                        Tittel-claim gir +1 🔶 hvis du vet tittel og artist.
+                        Utfordre = en annen spiller satser 1 🔶 på at de kan plassere sangen riktig. Tittel-claim gir +1
+                        🔶 hvis du vet tittel og artist.
                     </p>
                 </div>
 
@@ -285,7 +285,7 @@
                     <h2 id="reveal-title"></h2>
                     <p id="reveal-subtitle" class="reveal-subtitle"></p>
                     <div class="reveal-song-info" id="reveal-song-info">
-                        <img id="reveal-song-cover" class="reveal-song-cover" alt="" style="display:none">
+                        <img id="reveal-song-cover" class="reveal-song-cover" alt="" style="display: none" />
                         <p class="reveal-song-name" id="reveal-song-name"></p>
                         <p class="reveal-song-artist" id="reveal-song-artist"></p>
                         <p class="reveal-song-year-row">
@@ -391,6 +391,12 @@
         </div>
 
         <!-- Notification Toast -->
-        <div id="notification-toast" class="notification-toast" style="display: none"></div>
+        <div
+            id="notification-toast"
+            class="notification-toast"
+            role="alert"
+            aria-live="assertive"
+            style="display: none"
+        ></div>
     </body>
 </html>
