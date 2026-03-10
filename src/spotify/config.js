@@ -1,6 +1,6 @@
 // Spotify OAuth PKCE configuration
 // Register your app at https://developer.spotify.com/dashboard
-// Add redirect URI: https://chaerem.github.io/Hitster/ (and http://localhost:8080/ for dev)
+// Add redirect URI: https://chaerem.github.io/Plongster/ (and http://localhost:8080/ for dev)
 
 export const SPOTIFY_CONFIG = {
     clientId: null, // Set via setClientId() or environment

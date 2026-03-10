@@ -84,7 +84,7 @@ export const engineMethods = {
                         `<div class="final-score-row"><span>${escapeHtml(p.name)}</span><span>${p.score} kort \u00B7 \u{1F536}${p.tokens}</span></div>`,
                 )
                 .join('');
-        localStorage.removeItem('hitster-game-state');
+        localStorage.removeItem('plongster-game-state');
         window.App.showScreen('screen-winner');
     },
 

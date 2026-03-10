@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Hitster Song Generator
+ * Plongster Song Generator
  *
  * Generates songs-data.js from one or more Spotify playlists.
  * Uses Spotify Web API (client credentials) — requires API credentials.
@@ -354,7 +354,7 @@ async function main() {
         process.exit(1);
     }
 
-    console.log('Hitster Song Generator\n');
+    console.log('Plongster Song Generator\n');
 
     let allSongs = [];
 

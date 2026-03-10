@@ -1,4 +1,4 @@
-// Node.js test runner for Hitster game logic
+// Node.js test runner for Plongster game logic
 // Integration, regression, and edge case tests
 const vm = require('vm');
 const fs = require('fs');
@@ -814,12 +814,12 @@ assert('Restore: cardsToWin preserved', G.cardsToWin === 7);
 assert('Restore: players preserved', G.players.length === 2 && G.players[0].name === 'Alice');
 
 // Corrupt data
-storageBacking['hitster-game'] = 'not-valid-json{{{';
+storageBacking['plongster-game'] = 'not-valid-json{{{';
 const restoreCorrupt = G.restoreState();
 assert('Corrupt JSON: restoreState returns false', restoreCorrupt === false);
 
 // Invalid structure: too few players
-storageBacking['hitster-game'] = JSON.stringify({
+storageBacking['plongster-game'] = JSON.stringify({
     players: [{ name: 'Solo', timeline: [], score: 0 }],
     currentPlayerIndex: 0,
     cardsToWin: 3,
@@ -827,7 +827,7 @@ storageBacking['hitster-game'] = JSON.stringify({
 assert('Invalid structure: returns false', G.restoreState() === false);
 
 // Invalid: currentPlayerIndex out of range
-storageBacking['hitster-game'] = JSON.stringify({
+storageBacking['plongster-game'] = JSON.stringify({
     players: [
         { name: 'A', timeline: [], score: 0 },
         { name: 'B', timeline: [], score: 0 },
@@ -838,7 +838,7 @@ storageBacking['hitster-game'] = JSON.stringify({
 assert('Bad playerIndex: returns false', G.restoreState() === false);
 
 // Invalid: negative cardsToWin
-storageBacking['hitster-game'] = JSON.stringify({
+storageBacking['plongster-game'] = JSON.stringify({
     players: [
         { name: 'A', timeline: [], score: 0 },
         { name: 'B', timeline: [], score: 0 },
@@ -849,7 +849,7 @@ storageBacking['hitster-game'] = JSON.stringify({
 assert('Negative cardsToWin: returns false', G.restoreState() === false);
 
 // Invalid: player without name
-storageBacking['hitster-game'] = JSON.stringify({
+storageBacking['plongster-game'] = JSON.stringify({
     players: [
         { name: '', timeline: [], score: 0 },
         { name: 'B', timeline: [], score: 0 },
@@ -878,7 +878,7 @@ const oldFormatState = {
     },
     titleArtistClaimed: false,
 };
-storageBacking['hitster-game'] = JSON.stringify(oldFormatState);
+storageBacking['plongster-game'] = JSON.stringify(oldFormatState);
 G.restoreState();
 assert('Old format migrated: challengers is array', Array.isArray(G.challengePhase.challengers));
 assert(
@@ -901,7 +901,7 @@ const noTokensState = {
     challengePhase: null,
     titleArtistClaimed: false,
 };
-storageBacking['hitster-game'] = JSON.stringify(noTokensState);
+storageBacking['plongster-game'] = JSON.stringify(noTokensState);
 G.restoreState();
 assert(
     'Missing tokens: defaults to 3',
@@ -930,13 +930,13 @@ const desyncState = {
     challengePhase: null,
     titleArtistClaimed: false,
 };
-storageBacking['hitster-game'] = JSON.stringify(desyncState);
+storageBacking['plongster-game'] = JSON.stringify(desyncState);
 G.restoreState();
 assert('Score recalculated: A has 2', G.players[0].score === 2);
 assert('Score recalculated: B has 1', G.players[1].score === 1);
 
 // No saved state
-delete storageBacking['hitster-game'];
+delete storageBacking['plongster-game'];
 assert('No saved state: returns false', G.restoreState() === false);
 
 // State versioning: V2 state saved with stateVersion
@@ -946,7 +946,7 @@ G.hasPlayedSong = true;
 G.isWaitingForPlacement = true;
 G.gamePhase = Phase.PLACING;
 G.saveState();
-const savedV2 = JSON.parse(storageBacking['hitster-game']);
+const savedV2 = JSON.parse(storageBacking['plongster-game']);
 assert('Save includes stateVersion 2', savedV2.stateVersion === 2);
 assert('Save includes gamePhase', savedV2.gamePhase === 'PLACING');
 
@@ -965,7 +965,7 @@ const v1State = {
     challengePhase: null,
     titleArtistClaimed: false,
 };
-storageBacking['hitster-game'] = JSON.stringify(v1State);
+storageBacking['plongster-game'] = JSON.stringify(v1State);
 assert('V1 state restores successfully', G.restoreState() === true);
 assert('V1 migration: gamePhase inferred as PLACING', G.gamePhase === 'PLACING');
 
@@ -984,7 +984,7 @@ const v1Challenge = {
     challengePhase: { originalPlayerIndex: 0, originalDropIndex: 1, challengers: [], currentChallengerIdx: 0 },
     titleArtistClaimed: false,
 };
-storageBacking['hitster-game'] = JSON.stringify(v1Challenge);
+storageBacking['plongster-game'] = JSON.stringify(v1Challenge);
 assert('V1 with challenge restores', G.restoreState() === true);
 assert('V1 challenge: gamePhase is PRE_REVEAL', G.gamePhase === 'PRE_REVEAL');
 
@@ -1003,7 +1003,7 @@ const v1NoSong = {
     challengePhase: null,
     titleArtistClaimed: false,
 };
-storageBacking['hitster-game'] = JSON.stringify(v1NoSong);
+storageBacking['plongster-game'] = JSON.stringify(v1NoSong);
 assert('V1 no song restores', G.restoreState() === true);
 assert('V1 no song: gamePhase is PASS_PHONE', G.gamePhase === 'PASS_PHONE');
 
@@ -1017,9 +1017,9 @@ const futureState = {
     currentPlayerIndex: 0,
     cardsToWin: 5,
 };
-storageBacking['hitster-game'] = JSON.stringify(futureState);
+storageBacking['plongster-game'] = JSON.stringify(futureState);
 assert('Future version: restoreState returns false', G.restoreState() === false);
-assert('Future version: state cleared', !storageBacking['hitster-game']);
+assert('Future version: state cleared', !storageBacking['plongster-game']);
 
 // ==================== FULL GAME FLOW SIMULATION ====================
 section('Full Game Flow (2 players, win at 3)');

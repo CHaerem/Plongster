@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Hitster Game Flow', () => {
+test.describe('Plongster Game Flow', () => {
     test.beforeEach(async ({ page }) => {
         // Clear all state and unregister service workers for a clean start
         await page.goto('/');
@@ -17,7 +17,7 @@ test.describe('Hitster Game Flow', () => {
 
     test('welcome screen loads correctly', async ({ page }) => {
         await expect(page.locator('#screen-welcome')).toHaveClass(/active/);
-        await expect(page.locator('#screen-welcome h1')).toHaveText('HITSTER');
+        await expect(page.locator('#screen-welcome h1')).toHaveText('PLONGSTER');
         await expect(page.getByText('Start spill')).toBeVisible();
         await expect(page.getByText('Hurtigstart (2 spillere)')).toBeVisible();
     });
@@ -126,7 +126,7 @@ test.describe('Hitster Game Flow', () => {
 
         // Verify state is saved — use polling to handle any async timing
         await expect(async () => {
-            const hasState = await page.evaluate(() => !!localStorage.getItem('hitster-game'));
+            const hasState = await page.evaluate(() => !!localStorage.getItem('plongster-game'));
             expect(hasState).toBe(true);
         }).toPass({ timeout: 3000 });
     });
@@ -144,7 +144,7 @@ test.describe('Hitster Game Flow', () => {
 
         // Check that player names were saved
         const names = await page.evaluate(() => {
-            const data = localStorage.getItem('hitster-player-names');
+            const data = localStorage.getItem('plongster-player-names');
             return data ? JSON.parse(data) : null;
         });
         expect(names).toEqual(['Alice', 'Bob']);

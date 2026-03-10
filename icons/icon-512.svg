@@ -25,6 +25,6 @@
     <!-- Note head -->
     <ellipse cx="-8" cy="28" rx="36" ry="26" transform="rotate(-20, -8, 28)" fill="url(#accent)"/>
   </g>
-  <!-- HITSTER text -->
-  <text x="256" y="430" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="56" letter-spacing="8" fill="url(#accent)">HITSTER</text>
+  <!-- PLONGSTER text -->
+  <text x="256" y="430" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="46" letter-spacing="5" fill="url(#accent)">PLONGSTER</text>
 </svg>

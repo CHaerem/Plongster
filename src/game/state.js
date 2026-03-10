@@ -99,14 +99,14 @@ export const stateMethods = {
             gamePhase: this.gamePhase,
         };
         try {
-            localStorage.setItem('hitster-game', JSON.stringify(state));
+            localStorage.setItem('plongster-game', JSON.stringify(state));
         } catch (e) {
             console.warn('Could not save game state:', e.message);
         }
     },
 
     restoreState() {
-        const data = localStorage.getItem('hitster-game');
+        const data = localStorage.getItem('plongster-game');
         if (!data) return false;
         try {
             let state = JSON.parse(data);
@@ -170,6 +170,6 @@ export const stateMethods = {
     },
 
     clearState() {
-        localStorage.removeItem('hitster-game');
+        localStorage.removeItem('plongster-game');
     },
 };

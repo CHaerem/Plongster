@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Hitster Song Library Updater
+# Plongster Song Library Updater
 #
 # Regenerates songs.js from curated Spotify playlists.
 # No API keys needed — uses Spotify embed pages.
@@ -19,7 +19,7 @@ EXTRA_FLAGS="$@"
 TOOL="node tools/generate-songs.js"
 
 echo "╔══════════════════════════════════════════════╗"
-echo "║      🎵 Hitster Library Updater              ║"
+echo "║      🎵 Plongster Library Updater              ║"
 echo "╚══════════════════════════════════════════════╝"
 echo ""
 echo "This will generate a fresh songs.js from curated Spotify playlists."

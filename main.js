@@ -1,4 +1,4 @@
-// Hitster — main entry point
+// Plongster — main entry point
 // Composes App and Game from modules and exposes them on window
 
 import { App } from './src/app.js';

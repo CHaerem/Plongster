@@ -2,7 +2,7 @@
 
 ## Overview
 
-Hitster is a single-page PWA built with vanilla JavaScript ES modules. No build step, no bundler, no framework — files are served as-is from GitHub Pages.
+Plongster is a single-page PWA built with vanilla JavaScript ES modules. No build step, no bundler, no framework — files are served as-is from GitHub Pages.
 
 ## Module Graph
 
@@ -64,7 +64,7 @@ Transitions are validated via `isValidTransition(from, to)` in `src/game/phases.
 
 ## State Persistence
 
-Game state is saved to `localStorage` key `hitster-game` after every meaningful action. The format is versioned (`stateVersion: 2`) with a migration chain in `src/game/state.js`.
+Game state is saved to `localStorage` key `plongster-game` after every meaningful action. The format is versioned (`stateVersion: 2`) with a migration chain in `src/game/state.js`.
 
 On restore, the state is validated, migrated if needed, and the song deck is reconstructed from the full database minus used songs.
 

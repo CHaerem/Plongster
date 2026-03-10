@@ -6,6 +6,30 @@ import { SPOTIFY_CONFIG } from './spotify/config.js';
 import { isLoggedIn, getUsername, startLogin, logout } from './spotify/oauth.js';
 import { fetchUserPlaylists, fetchPlaylistTracks } from './spotify/api.js';
 
+// ─── Migrate localStorage keys from old "hitster-" prefix ───
+
+function migrateLocalStorageKeys() {
+    const keyMap = [
+        ['hitster-game', 'plongster-game'],
+        ['hitster-playlist-url', 'plongster-playlist-url'],
+        ['hitster-playlist-songs', 'plongster-playlist-songs'],
+        ['hitster-playlist-name', 'plongster-playlist-name'],
+        ['hitster-genres', 'plongster-genres'],
+        ['hitster-player-names', 'plongster-player-names'],
+        ['hitster-spotify-token', 'plongster-spotify-token'],
+        ['hitster-spotify-verifier', 'plongster-spotify-verifier'],
+        ['hitster-spotify-user', 'plongster-spotify-user'],
+    ];
+    for (const [oldKey, newKey] of keyMap) {
+        if (localStorage.getItem(oldKey) !== null && localStorage.getItem(newKey) === null) {
+            localStorage.setItem(newKey, localStorage.getItem(oldKey));
+            localStorage.removeItem(oldKey);
+        }
+    }
+}
+
+migrateLocalStorageKeys();
+
 export const App = {
     winCount: 10,
     _loadingAbort: null,
@@ -28,12 +52,12 @@ export const App = {
         await initSongs();
         document.getElementById('win-count').textContent = this.winCount;
 
-        const savedUrl = localStorage.getItem('hitster-playlist-url');
+        const savedUrl = localStorage.getItem('plongster-playlist-url');
         const playlistInput = document.getElementById('playlist-url');
         if (savedUrl && playlistInput) playlistInput.value = savedUrl;
 
-        const cachedSongs = localStorage.getItem('hitster-playlist-songs');
-        const cachedName = localStorage.getItem('hitster-playlist-name');
+        const cachedSongs = localStorage.getItem('plongster-playlist-songs');
+        const cachedName = localStorage.getItem('plongster-playlist-name');
         if (cachedSongs) {
             try {
                 const songs = JSON.parse(cachedSongs);
@@ -53,7 +77,7 @@ export const App = {
                 console.warn('Failed to restore cached songs:', e);
             }
         } else {
-            const savedGenres = localStorage.getItem('hitster-genres');
+            const savedGenres = localStorage.getItem('plongster-genres');
             if (savedGenres) {
                 try {
                     const genres = JSON.parse(savedGenres);
@@ -170,10 +194,10 @@ export const App = {
 
             setSongs(unique);
             this._usingCustomPlaylist = true;
-            localStorage.setItem('hitster-playlist-url', url);
+            localStorage.setItem('plongster-playlist-url', url);
             try {
-                localStorage.setItem('hitster-playlist-songs', JSON.stringify(unique));
-                localStorage.setItem('hitster-playlist-name', playlistName);
+                localStorage.setItem('plongster-playlist-songs', JSON.stringify(unique));
+                localStorage.setItem('plongster-playlist-name', playlistName);
             } catch (e) {
                 console.warn('Could not cache songs to localStorage:', e.message);
             }
@@ -387,8 +411,8 @@ export const App = {
             setSongs(unique);
             this._usingCustomPlaylist = true;
             try {
-                localStorage.setItem('hitster-playlist-songs', JSON.stringify(unique));
-                localStorage.setItem('hitster-playlist-name', playlistName);
+                localStorage.setItem('plongster-playlist-songs', JSON.stringify(unique));
+                localStorage.setItem('plongster-playlist-name', playlistName);
             } catch (e) {
                 console.warn('Could not cache songs to localStorage:', e.message);
             }
@@ -423,14 +447,14 @@ export const App = {
     },
 
     resetSongs() {
-        localStorage.removeItem('hitster-playlist-url');
-        localStorage.removeItem('hitster-playlist-songs');
-        localStorage.removeItem('hitster-playlist-name');
+        localStorage.removeItem('plongster-playlist-url');
+        localStorage.removeItem('plongster-playlist-songs');
+        localStorage.removeItem('plongster-playlist-name');
         window.Game.clearState();
         this._usingCustomPlaylist = false;
         resetSongsStore();
         this._selectedGenres.clear();
-        localStorage.removeItem('hitster-genres');
+        localStorage.removeItem('plongster-genres');
         this.applyGenreFilter();
         this.renderGenreChips();
         this.updateSongBadge();
@@ -501,7 +525,7 @@ export const App = {
 
         this.applyGenreFilter();
         this.renderGenreChips();
-        localStorage.setItem('hitster-genres', JSON.stringify([...this._selectedGenres]));
+        localStorage.setItem('plongster-genres', JSON.stringify([...this._selectedGenres]));
     },
 
     applyGenreFilter() {
@@ -574,7 +598,7 @@ export const App = {
 
         // Remember player names for next session
         try {
-            localStorage.setItem('hitster-player-names', JSON.stringify(names));
+            localStorage.setItem('plongster-player-names', JSON.stringify(names));
         } catch (e) {}
 
         window.Game.init(names, this.winCount);
@@ -592,7 +616,7 @@ export const App = {
         }
 
         try {
-            localStorage.setItem('hitster-player-names', JSON.stringify(names));
+            localStorage.setItem('plongster-player-names', JSON.stringify(names));
         } catch (e) {}
 
         window.Game.init(names, this.winCount);
@@ -602,7 +626,7 @@ export const App = {
 
     _getSavedPlayerNames() {
         try {
-            const data = localStorage.getItem('hitster-player-names');
+            const data = localStorage.getItem('plongster-player-names');
             if (!data) return [];
             const names = JSON.parse(data);
             if (Array.isArray(names) && names.every(n => typeof n === 'string' && n.length > 0)) {

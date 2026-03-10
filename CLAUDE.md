@@ -1,12 +1,12 @@
-# Hitster - Claude Code Instructions
+# Plongster - Claude Code Instructions
 
 ## Project Overview
 
 Norwegian music quiz PWA — players place songs chronologically on a timeline.
 Vanilla JavaScript, no frameworks, no build step. Deployed as static files to GitHub Pages.
 
-Live: https://chaerem.github.io/Hitster/
-Test/preview: https://chaerem.github.io/Hitster/test/
+Live: https://chaerem.github.io/Plongster/
+Test/preview: https://chaerem.github.io/Plongster/test/
 
 ## Commands
 
@@ -67,11 +67,11 @@ Single-page app with 5 screens managed by showing/hiding divs (no router). ES mo
 - `tests/e2e/game-flow.spec.js` — Playwright E2E tests (10 browser tests)
 - `tests.html` — Browser-based test suite
 
-`App` and `Game` are object singletons (not classes) exposed on `window`. Game is composed from module method objects using `Object.defineProperties` to preserve getters. State lives in `Game` and persists to `localStorage` as `hitster-*` keys.
+`App` and `Game` are object singletons (not classes) exposed on `window`. Game is composed from module method objects using `Object.defineProperties` to preserve getters. State lives in `Game` and persists to `localStorage` as `plongster-*` keys.
 
 **Game phase state machine:** `IDLE → PASS_PHONE → LISTENING → PLACING → PLACEMENT_CONFIRM → PRE_REVEAL → CHALLENGER_PASS → CHALLENGER_PLACING → CHALLENGER_CONFIRM → REVEAL → TITLE_CLAIM → GAME_OVER`. Validated transitions prevent invalid state combinations.
 
-**State persistence:** Versioned format (currently V2) with migration chain for backward compatibility. Saved to `localStorage` key `hitster-game`.
+**State persistence:** Versioned format (currently V2) with migration chain for backward compatibility. Saved to `localStorage` key `plongster-game`.
 
 ## Code Style
 
@@ -148,5 +148,5 @@ Valid genres: pop, rock, hiphop, electronic, norwegian, soul, country, latin, me
 - Spotify embed needs valid track IDs — validate format: 22 alphanumeric chars
 - `songs-data.js` is large (~157KB) — don't read it unless modifying song data
 - The app uses root-relative paths in sw.js but relative paths in HTML
-- State persistence key is `hitster-game` (not `hitster-game-state`)
+- State persistence key is `plongster-game` (not `plongster-game-state`)
 - Songs store must be initialized via `initSongs()` before use (async, called in `App.init()`)

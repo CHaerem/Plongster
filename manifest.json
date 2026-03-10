@@ -1,9 +1,9 @@
 {
-    "name": "Hitster - Musikkquiz",
-    "short_name": "Hitster",
+    "name": "Plongster - Musikkquiz",
+    "short_name": "Plongster",
     "description": "Plasser hitsen i riktig rekkefølge! En musikkquiz der du plasserer sanger kronologisk på tidslinjen din.",
-    "start_url": "/Hitster/",
-    "scope": "/Hitster/",
+    "start_url": "/Plongster/",
+    "scope": "/Plongster/",
     "display": "standalone",
     "orientation": "portrait",
     "theme_color": "#0a0a0f",

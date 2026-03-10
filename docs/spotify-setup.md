@@ -1,6 +1,6 @@
 # Spotify Setup
 
-Hitster uses Spotify for song playback and optional playlist import. The core game works without any Spotify login — playback uses the Spotify Embed IFrame API, and 1200+ built-in songs are included.
+Plongster uses Spotify for song playback and optional playlist import. The core game works without any Spotify login — playback uses the Spotify Embed IFrame API, and 1200+ built-in songs are included.
 
 ## No Login Required
 
@@ -17,7 +17,7 @@ To enable "Log in with Spotify" for importing custom playlists:
 
 1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
 2. Click "Create App"
-3. Set the redirect URI to your deployment URL (e.g., `https://chaerem.github.io/Hitster/`)
+3. Set the redirect URI to your deployment URL (e.g., `https://chaerem.github.io/Plongster/`)
 4. For local development, also add `http://localhost:8080/`
 5. Note the **Client ID**
 
@@ -40,7 +40,7 @@ The OAuth PKCE flow (in `src/spotify/oauth.js`):
 3. User is redirected to Spotify's authorization page
 4. Spotify redirects back with an authorization code
 5. App exchanges the code for access + refresh tokens
-6. Tokens are stored in `localStorage` key `hitster-spotify-token`
+6. Tokens are stored in `localStorage` key `plongster-spotify-token`
 7. On subsequent visits, the refresh token is used silently
 
 **Scopes requested:** `playlist-read-private playlist-read-collaborative`

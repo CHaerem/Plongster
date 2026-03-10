@@ -8,8 +8,8 @@
 ## Getting Started
 
 ```bash
-git clone git@github.com:CHaerem/Hitster.git
-cd Hitster
+git clone git@github.com:CHaerem/Plongster.git
+cd Plongster
 npm install          # Dev dependencies only (ESLint, Prettier, Playwright)
 python3 -m http.server 8080  # Start dev server
 ```
@@ -19,7 +19,7 @@ Open http://localhost:8080 in your browser.
 ## Project Structure
 
 ```
-Hitster/
+Plongster/
 ├── index.html              # All UI screens
 ├── main.js                 # Entry point, composes Game singleton
 ├── songs-data.js           # Song database (~1200 songs, auto-generated)
@@ -89,11 +89,11 @@ npx prettier --check .
 The PR will automatically:
 
 - Run unit tests and E2E tests
-- Deploy a preview to https://chaerem.github.io/Hitster/test/
+- Deploy a preview to https://chaerem.github.io/Plongster/test/
 
 ## Service Worker
 
-When modifying any cached file, bump `CACHE_VERSION` in `sw.js` (e.g., `hitster-v36` → `hitster-v37`). The app shell list in `sw.js` must include all JS modules.
+When modifying any cached file, bump `CACHE_VERSION` in `sw.js` (e.g., `plongster-v36` → `plongster-v37`). The app shell list in `sw.js` must include all JS modules.
 
 During development, you may want to unregister the service worker via DevTools > Application > Service Workers to avoid stale caches.
 

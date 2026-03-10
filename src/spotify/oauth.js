@@ -3,8 +3,8 @@
 
 import { SPOTIFY_CONFIG, getRedirectUri } from './config.js';
 
-const TOKEN_KEY = 'hitster-spotify-token';
-const VERIFIER_KEY = 'hitster-spotify-verifier';
+const TOKEN_KEY = 'plongster-spotify-token';
+const VERIFIER_KEY = 'plongster-spotify-verifier';
 
 // ─── PKCE Helpers ───
 
@@ -62,7 +62,7 @@ export function isLoggedIn() {
 
 export function getUsername() {
     try {
-        const data = localStorage.getItem('hitster-spotify-user');
+        const data = localStorage.getItem('plongster-spotify-user');
         if (!data) return null;
         return JSON.parse(data).name || null;
     } catch {
@@ -216,7 +216,7 @@ async function fetchAndStoreUser(accessToken) {
         });
         if (response.ok) {
             const user = await response.json();
-            localStorage.setItem('hitster-spotify-user', JSON.stringify({ name: user.display_name, id: user.id }));
+            localStorage.setItem('plongster-spotify-user', JSON.stringify({ name: user.display_name, id: user.id }));
         }
     } catch {
         // Non-critical, ignore
@@ -233,5 +233,5 @@ function cleanUrl() {
 
 export function logout() {
     clearToken();
-    localStorage.removeItem('hitster-spotify-user');
+    localStorage.removeItem('plongster-spotify-user');
 }

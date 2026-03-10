@@ -1,8 +1,8 @@
-# Hitster
+# Plongster
 
-> **[Spill Hitster](https://chaerem.github.io/Hitster/)**
+> **[Spill Plongster](https://chaerem.github.io/Plongster/)**
 
-En nettbasert versjon av musikkquiz-spillet Hitster. Lytt til sanger og plasser dem i riktig kronologisk rekkefølge på tidslinjen din. Førstemann til målet vinner!
+En nettbasert musikkquiz — lytt til sanger og plasser dem i riktig kronologisk rekkefølge på tidslinjen din. Førstemann til målet vinner!
 
 ## Hvordan spille
 
@@ -54,14 +54,14 @@ Gå til `http://localhost:8080` i nettleseren.
 
 ```
 ├── index.html       # Hovedside med alle skjermer
-├── app.js           # App-kontroller (oppsett, Spotify-lasting)
-├── game.js          # Spillogikk, tokens, utfordringer, tilstandshåndtering
-├── songs.js         # Sangdatabase (1200+ sanger)
+├── main.js          # Inngangspunkt, setter opp App og Game
+├── songs-data.js    # Sangdatabase (1200+ sanger)
 ├── style.css        # Styling og animasjoner
 ├── sw.js            # Service Worker for offline-caching
 ├── manifest.json    # PWA-manifest
 ├── test.js          # Node.js testsuite
 ├── tests.html       # Nettleserbasert testsuite
+├── src/             # Kildekode (ES-moduler)
 ├── icons/           # PWA-ikoner (192px, 512px)
 └── tools/
     ├── generate-songs.js   # Generer sangdata fra Spotify-spillelister
@@ -78,16 +78,6 @@ node test.js
 ```
 
 ## Legge til sanger
-
-### Manuelt
-
-Rediger `songs.js` og legg til nye sanger i `SONGS_DATABASE`:
-
-```javascript
-{ title: "Sangtittel", artist: "Artist", year: 2024, spotifyId: "SPOTIFY_TRACK_ID", genre: "pop" }
-```
-
-Spotify Track ID finner du i delingslenken til sangen: `https://open.spotify.com/track/SPOTIFY_TRACK_ID`
 
 ### Fra Spotify-spilleliste
 
