@@ -7,6 +7,8 @@ import { uiMethods } from './src/game/ui.js';
 import { spotifyMethods } from './src/game/spotify.js';
 import { stateMethods } from './src/game/state.js';
 import { gmMethods } from './src/game/gm-panel.js';
+import { setClientId } from './src/spotify/config.js';
+import { handleCallback } from './src/spotify/oauth.js';
 
 // ─── Build Game singleton from modules ───
 
@@ -63,6 +65,17 @@ window.onSpotifyIframeApiReady = IFrameAPI => {
     Game.spotifyAPI = IFrameAPI;
 };
 
-// ─── Initialize ───
+// ─── Spotify OAuth Setup ───
 
-App.init();
+const clientIdMeta = document.querySelector('meta[name="spotify-client-id"]');
+if (clientIdMeta) {
+    setClientId(clientIdMeta.content);
+}
+
+// Handle OAuth callback before app init
+(async () => {
+    if (window.location.search.includes('code=')) {
+        await handleCallback();
+    }
+    App.init();
+})();

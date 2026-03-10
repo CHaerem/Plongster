@@ -3,6 +3,9 @@
 import { getSongs, setSongs, resetSongs as resetSongsStore, getAllSongs } from './songs.js';
 import { getAnonymousToken } from './spotify/auth.js';
 import { extractPlaylistId, fetchViaWebAPI, fetchViaEmbedScraping } from './spotify/playlist.js';
+import { SPOTIFY_CONFIG } from './spotify/config.js';
+import { isLoggedIn, getUsername, startLogin, logout } from './spotify/oauth.js';
+import { fetchUserPlaylists, fetchPlaylistTracks } from './spotify/api.js';
 
 export const App = {
     winCount: 10,
@@ -11,6 +14,8 @@ export const App = {
     _loadGeneration: 0,
     _selectedGenres: new Set(),
     _usingCustomPlaylist: false,
+    _playlistOffset: 0,
+    _playlistTotal: 0,
 
     _genreConfig: [
         { id: 'pop', label: 'Pop', icon: '🎤' },
@@ -60,6 +65,7 @@ export const App = {
         }
 
         this.renderGenreChips();
+        this.renderSpotifyAccount();
 
         document.getElementById('player-list').addEventListener('keydown', e => {
             if (e.key === 'Enter') {
@@ -134,22 +140,42 @@ export const App = {
         try {
             const signal = this._loadingAbort.signal;
 
-            const token = await getAnonymousToken(signal);
-            if (signal.aborted) return;
-
             let songs = null;
             let playlistName = 'Spilleliste';
 
-            try {
-                this._showSongStatus('Henter sanger fra Spotify...', 'loading');
-                const apiResult = await fetchViaWebAPI(playlistId, token, signal);
-                songs = apiResult.songs;
-                playlistName = apiResult.name;
-            } catch (apiErr) {
-                if (apiErr.name === 'AbortError') throw apiErr;
-                console.warn('Web API failed, falling back to embed scraping:', apiErr.message);
+            // Try authenticated API first if logged in
+            if (isLoggedIn()) {
+                try {
+                    this._showSongStatus('Henter sanger fra Spotify...', 'loading');
+                    const result = await fetchPlaylistTracks(playlistId, signal, (done, total) => {
+                        this._showSongStatus(`Henter sanger... (${done}/${total})`, 'loading');
+                        badge.textContent = `${done}/${total}...`;
+                    });
+                    songs = result.songs;
+                    playlistName = result.name;
+                } catch (authErr) {
+                    if (authErr.name === 'AbortError') throw authErr;
+                    console.warn('Authenticated API failed, falling back:', authErr.message);
+                }
             }
 
+            // Fallback: anonymous token + Web API
+            if (!songs || songs.length === 0) {
+                const token = await getAnonymousToken(signal);
+                if (signal.aborted) return;
+
+                try {
+                    this._showSongStatus('Henter sanger fra Spotify...', 'loading');
+                    const apiResult = await fetchViaWebAPI(playlistId, token, signal);
+                    songs = apiResult.songs;
+                    playlistName = apiResult.name;
+                } catch (apiErr) {
+                    if (apiErr.name === 'AbortError') throw apiErr;
+                    console.warn('Web API failed, falling back to embed scraping:', apiErr.message);
+                }
+            }
+
+            // Fallback: embed scraping
             if (!songs || songs.length === 0) {
                 this._showSongStatus('Henter spilleliste...', 'loading');
                 const embedResult = await fetchViaEmbedScraping(playlistId, signal, (done, total) => {
@@ -201,6 +227,192 @@ export const App = {
         }
     },
 
+    // ─── Spotify Account ───
+
+    renderSpotifyAccount() {
+        const container = document.getElementById('spotify-account');
+        const loginBtn = document.getElementById('spotify-login-btn');
+        const userInfo = document.getElementById('spotify-user-info');
+        const playlistsEl = document.getElementById('spotify-playlists');
+        if (!container) return;
+
+        // Only show if client ID is configured
+        if (!SPOTIFY_CONFIG.clientId) {
+            container.style.display = 'none';
+            if (playlistsEl) playlistsEl.style.display = 'none';
+            return;
+        }
+
+        container.style.display = '';
+
+        if (isLoggedIn()) {
+            loginBtn.style.display = 'none';
+            userInfo.style.display = '';
+            const nameEl = document.getElementById('spotify-user-name');
+            nameEl.textContent = getUsername() || 'Tilkoblet';
+            // Auto-load playlists
+            if (!this._usingCustomPlaylist) {
+                this.loadPlaylists();
+            }
+        } else {
+            loginBtn.style.display = '';
+            userInfo.style.display = 'none';
+            if (playlistsEl) playlistsEl.style.display = 'none';
+        }
+    },
+
+    spotifyLogin() {
+        startLogin();
+    },
+
+    spotifyLogout() {
+        logout();
+        this.resetSongs();
+        this.renderSpotifyAccount();
+    },
+
+    async loadPlaylists() {
+        const container = document.getElementById('spotify-playlists');
+        const grid = document.getElementById('spotify-playlist-grid');
+        if (!container || !grid) return;
+
+        this._playlistOffset = 0;
+        container.style.display = '';
+        grid.innerHTML = '<p style="color:var(--text-dim);padding:8px;">Laster spillelister...</p>';
+
+        try {
+            const result = await fetchUserPlaylists(0, 20);
+            this._playlistOffset = 20;
+            this._playlistTotal = result.total;
+            grid.innerHTML = '';
+
+            if (result.items.length === 0) {
+                grid.innerHTML = '<p style="color:var(--text-dim);padding:8px;">Ingen spillelister funnet.</p>';
+                return;
+            }
+
+            for (const pl of result.items) {
+                grid.appendChild(this._createPlaylistCard(pl));
+            }
+
+            const loadMoreBtn = document.getElementById('spotify-load-more');
+            if (loadMoreBtn) {
+                loadMoreBtn.style.display = result.hasMore ? '' : 'none';
+            }
+        } catch (e) {
+            grid.innerHTML = `<p style="color:var(--error);padding:8px;">${e.message}</p>`;
+        }
+    },
+
+    async loadMorePlaylists() {
+        const grid = document.getElementById('spotify-playlist-grid');
+        const loadMoreBtn = document.getElementById('spotify-load-more');
+        if (!grid) return;
+
+        try {
+            if (loadMoreBtn) loadMoreBtn.disabled = true;
+            const result = await fetchUserPlaylists(this._playlistOffset, 20);
+            this._playlistOffset += 20;
+
+            for (const pl of result.items) {
+                grid.appendChild(this._createPlaylistCard(pl));
+            }
+
+            if (loadMoreBtn) {
+                loadMoreBtn.style.display = result.hasMore ? '' : 'none';
+                loadMoreBtn.disabled = false;
+            }
+        } catch (e) {
+            if (loadMoreBtn) loadMoreBtn.disabled = false;
+        }
+    },
+
+    _createPlaylistCard(playlist) {
+        const card = document.createElement('button');
+        card.className = 'spotify-playlist-card';
+        card.onclick = () => this.selectPlaylist(playlist.id, playlist.name);
+
+        const img = playlist.imageUrl
+            ? `<img src="${playlist.imageUrl}" alt="" class="playlist-cover" loading="lazy">`
+            : '<div class="playlist-cover playlist-cover-empty"></div>';
+
+        card.innerHTML = `
+            ${img}
+            <div class="playlist-info">
+                <span class="playlist-name">${this._escapeAttr(playlist.name)}</span>
+                <span class="playlist-meta">${playlist.trackCount} sanger</span>
+            </div>
+        `;
+        return card;
+    },
+
+    _escapeAttr(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    },
+
+    async selectPlaylist(playlistId, playlistName) {
+        if (this._loadingAbort) this._loadingAbort.abort();
+        this._loadingAbort = new AbortController();
+        const generation = ++this._loadGeneration;
+
+        const badge = document.getElementById('song-source-badge');
+        const resetBtn = document.getElementById('spotify-reset-btn');
+
+        badge.textContent = 'Laster...';
+        badge.className = 'song-source-badge loading';
+        this._showSongStatus(`Henter "${playlistName}"...`, 'loading');
+
+        try {
+            const signal = this._loadingAbort.signal;
+            const result = await fetchPlaylistTracks(playlistId, signal, (done, total) => {
+                this._showSongStatus(`Henter sanger... (${done}/${total})`, 'loading');
+                badge.textContent = `${done}/${total}...`;
+            });
+
+            if (signal.aborted) return;
+
+            const songs = result.songs;
+            if (!songs || songs.length === 0) {
+                throw new Error('Ingen sanger med utgivelsesår funnet i spillelisten.');
+            }
+
+            const seen = new Set();
+            const unique = songs.filter(s => {
+                const key = `${s.title.toLowerCase()}-${s.artist.toLowerCase()}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+
+            setSongs(unique);
+            this._usingCustomPlaylist = true;
+            try {
+                localStorage.setItem('hitster-playlist-songs', JSON.stringify(unique));
+                localStorage.setItem('hitster-playlist-name', playlistName);
+            } catch (e) {
+                console.warn('Could not cache songs to localStorage:', e.message);
+            }
+
+            badge.textContent = `${playlistName} (${unique.length})`;
+            badge.className = 'song-source-badge custom';
+            this._showSongStatus(`${unique.length} sanger lastet fra "${playlistName}".`, 'success');
+            resetBtn.style.display = '';
+
+            // Hide playlist browser after selection
+            const playlistsEl = document.getElementById('spotify-playlists');
+            if (playlistsEl) playlistsEl.style.display = 'none';
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            badge.textContent = 'Feil';
+            badge.className = 'song-source-badge error';
+            this._showSongStatus(err.message, 'error');
+        } finally {
+            if (generation === this._loadGeneration) {
+                this._loadingAbort = null;
+            }
+        }
+    },
+
     // ─── Helpers ───
 
     _showSongStatus(text, type) {
@@ -229,6 +441,10 @@ export const App = {
         const input = document.getElementById('playlist-url');
         if (input) input.value = '';
         this._showSongStatus('Lim inn en Spotify-spilleliste for egne sanger.', '');
+        // Re-show playlist browser if logged in
+        if (isLoggedIn() && SPOTIFY_CONFIG.clientId) {
+            this.loadPlaylists();
+        }
     },
 
     updateSongBadge() {
