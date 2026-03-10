@@ -50,13 +50,13 @@
                         vinner!
                     </p>
                 </div>
-                <button class="btn btn-primary btn-large" onclick="App.showSetup()">Start spill</button>
-                <button class="btn btn-ghost" onclick="App.quickStart()">Hurtigstart (2 spillere)</button>
-                <button class="btn btn-ghost" onclick="App.showScreen('screen-how-to-play')">Hvordan spille?</button>
+                <button class="btn btn-primary btn-large" data-action="show-setup">Start spill</button>
+                <button class="btn btn-ghost" data-action="quick-start">Hurtigstart (2 spillere)</button>
+                <button class="btn btn-ghost" data-action="show-how-to-play">Hvordan spille?</button>
                 <button
                     class="btn btn-secondary btn-install"
                     id="btn-install"
-                    onclick="installApp()"
+                    data-action="install-app"
                     style="display: none"
                 >
                     Installer appen
@@ -204,14 +204,14 @@
                 </div>
 
                 <div class="guide-nav">
-                    <button class="btn btn-ghost guide-nav-btn" id="guide-prev" onclick="App.guideStep(-1)">
+                    <button class="btn btn-ghost guide-nav-btn" id="guide-prev" data-action="guide-prev">
                         Forrige
                     </button>
-                    <button class="btn btn-primary guide-nav-btn" id="guide-next" onclick="App.guideStep(1)">
+                    <button class="btn btn-primary guide-nav-btn" id="guide-next" data-action="guide-next">
                         Neste
                     </button>
                 </div>
-                <button class="btn btn-ghost" onclick="App.showScreen('screen-welcome')">Tilbake til meny</button>
+                <button class="btn btn-ghost" data-action="show-welcome">Tilbake til meny</button>
             </div>
         </div>
 
@@ -232,7 +232,7 @@
                         />
                         <button
                             class="btn-icon btn-remove-player"
-                            onclick="App.removePlayer(this)"
+                            data-action="remove-player"
                             style="visibility: hidden"
                             aria-label="Fjern spiller"
                         >
@@ -251,7 +251,7 @@
                         />
                         <button
                             class="btn-icon btn-remove-player"
-                            onclick="App.removePlayer(this)"
+                            data-action="remove-player"
                             style="visibility: hidden"
                             aria-label="Fjern spiller"
                         >
@@ -259,18 +259,28 @@
                         </button>
                     </div>
                 </div>
-                <button class="btn btn-secondary btn-add-player" onclick="App.addPlayer()">+ Legg til spiller</button>
+                <button class="btn btn-secondary btn-add-player" data-action="add-player">+ Legg til spiller</button>
 
                 <div class="settings-section">
                     <h3>Innstillinger</h3>
                     <div class="setting-row">
                         <label>Kort for å vinne</label>
                         <div class="stepper">
-                            <button class="btn-icon" onclick="App.adjustWinCount(-1)" aria-label="Reduser antall kort">
+                            <button
+                                class="btn-icon"
+                                data-action="adjust-win-count"
+                                data-delta="-1"
+                                aria-label="Reduser antall kort"
+                            >
                                 -
                             </button>
                             <span id="win-count">10</span>
-                            <button class="btn-icon" onclick="App.adjustWinCount(1)" aria-label="Øk antall kort">
+                            <button
+                                class="btn-icon"
+                                data-action="adjust-win-count"
+                                data-delta="1"
+                                aria-label="Øk antall kort"
+                            >
                                 +
                             </button>
                         </div>
@@ -287,7 +297,7 @@
                         <button
                             id="spotify-login-btn"
                             class="btn btn-spotify"
-                            onclick="App.spotifyLogin()"
+                            data-action="spotify-login"
                             style="display: none"
                         >
                             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
@@ -299,7 +309,7 @@
                         </button>
                         <div id="spotify-user-info" class="spotify-user-info" style="display: none">
                             <span id="spotify-user-name"></span>
-                            <button class="btn-link" onclick="App.spotifyLogout()">Logg ut</button>
+                            <button class="btn-link" data-action="spotify-logout">Logg ut</button>
                         </div>
                     </div>
                     <div id="spotify-playlists" class="spotify-playlists" style="display: none">
@@ -315,7 +325,7 @@
                         <button
                             id="spotify-load-more"
                             class="btn btn-ghost btn-sm"
-                            onclick="App.loadMorePlaylists()"
+                            data-action="load-more-playlists"
                             style="display: none"
                         >
                             Last flere
@@ -330,24 +340,19 @@
                                 placeholder="Lim inn Spotify-spilleliste URL"
                                 autocomplete="off"
                             />
-                            <button class="btn btn-secondary btn-sm" onclick="App.loadPlaylist()">Last</button>
+                            <button class="btn btn-secondary btn-sm" data-action="load-playlist">Last</button>
                         </div>
                         <p class="songs-help-text" id="songs-help-text">
                             Lim inn en Spotify-spilleliste for egne sanger.
                         </p>
-                        <button
-                            class="btn-link"
-                            id="spotify-reset-btn"
-                            onclick="App.resetSongs()"
-                            style="display: none"
-                        >
+                        <button class="btn-link" id="spotify-reset-btn" data-action="reset-songs" style="display: none">
                             Tilbake til standard
                         </button>
                     </details>
                 </div>
 
-                <button class="btn btn-primary btn-large" onclick="App.startGame()">Start</button>
-                <button class="btn btn-ghost" onclick="App.showScreen('screen-welcome')">Tilbake</button>
+                <button class="btn btn-primary btn-large" data-action="start-game">Start</button>
+                <button class="btn btn-ghost" data-action="show-welcome">Tilbake</button>
             </div>
         </div>
 
@@ -356,7 +361,7 @@
             <div class="game-header">
                 <div class="game-header-top">
                     <div class="game-scores" id="game-scores" role="status" aria-label="Poeng"></div>
-                    <button class="btn-hamburger" onclick="Game.toggleMenu()" aria-label="Spillkontroll-meny">
+                    <button class="btn-hamburger" data-action="toggle-menu" aria-label="Spillkontroll-meny">
                         <span></span>
                         <span></span>
                         <span></span>
@@ -383,7 +388,7 @@
                             <button
                                 class="control-btn"
                                 id="btn-replay"
-                                onclick="Game.replayFromStart()"
+                                data-action="replay"
                                 title="Spill fra start"
                                 aria-label="Spill fra start"
                             >
@@ -396,7 +401,7 @@
                             <button
                                 class="control-btn control-btn-main"
                                 id="btn-play-pause"
-                                onclick="Game.togglePlay()"
+                                data-action="toggle-play"
                                 title="Spill/pause"
                                 aria-label="Spill eller pause"
                             >
@@ -432,12 +437,12 @@
                 <div id="pre-reveal">
                     <div class="pre-reveal-icon">🎵</div>
                     <h2>Plasseringen er låst!</h2>
-                    <button class="btn btn-claim" id="btn-claim-title" onclick="Game.toggleTitleClaim()">
+                    <button class="btn btn-claim" id="btn-claim-title" data-action="toggle-title-claim">
                         🎤 Jeg vet tittel og artist (+1 🔶)
                     </button>
                     <div class="pre-reveal-buttons">
-                        <button class="btn btn-primary btn-large" onclick="Game.skipChallenge()">Vis resultat</button>
-                        <button class="btn btn-ghost" id="btn-challenge" onclick="Game.startChallenge()">
+                        <button class="btn btn-primary btn-large" data-action="skip-challenge">Vis resultat</button>
+                        <button class="btn btn-ghost" id="btn-challenge" data-action="start-challenge">
                             ⚔️ Utfordre (1 🔶)
                         </button>
                     </div>
@@ -461,7 +466,7 @@
                             <button
                                 class="btn-edit-song"
                                 id="btn-edit-song"
-                                onclick="Game.gmStartEditSong()"
+                                data-action="gm-start-edit-song"
                                 title="Rediger sanginfo"
                                 aria-label="Rediger sanginfo"
                             >
@@ -483,28 +488,28 @@
                             <input type="text" id="edit-song-artist-input" />
                         </div>
                         <div class="edit-song-buttons">
-                            <button class="btn btn-primary btn-sm" onclick="Game.gmSaveEditSong()">Lagre</button>
-                            <button class="btn btn-ghost btn-sm" onclick="Game.gmCancelEditSong()">Avbryt</button>
+                            <button class="btn btn-primary btn-sm" data-action="gm-save-edit-song">Lagre</button>
+                            <button class="btn btn-ghost btn-sm" data-action="gm-cancel-edit-song">Avbryt</button>
                         </div>
                     </div>
                     <div id="token-award-section" class="token-award-section" style="display: none">
                         <p id="token-award-text" class="token-award-text"></p>
                         <div id="token-award-buttons" class="token-award-buttons" style="display: none">
-                            <button class="btn btn-primary" onclick="Game.confirmTitleClaim(true)">✅ Riktig</button>
-                            <button class="btn btn-ghost" onclick="Game.confirmTitleClaim(false)">❌ Feil</button>
+                            <button class="btn btn-primary" data-action="confirm-title-claim-correct">✅ Riktig</button>
+                            <button class="btn btn-ghost" data-action="confirm-title-claim-wrong">❌ Feil</button>
                         </div>
                     </div>
-                    <button class="btn btn-primary" id="btn-next-turn" onclick="Game.nextTurn()">Neste tur</button>
+                    <button class="btn btn-primary" id="btn-next-turn" data-action="next-turn">Neste tur</button>
                 </div>
             </div>
         </div>
 
         <!-- Game Master Panel -->
-        <div id="gm-backdrop" class="gm-backdrop" onclick="Game.closeMenu()" role="presentation"></div>
+        <div id="gm-backdrop" class="gm-backdrop" data-action="close-menu" role="presentation"></div>
         <div id="gm-panel" class="gm-panel" role="dialog" aria-modal="true" aria-label="Spillkontroll">
             <div class="gm-panel-header">
                 <h3>Spillkontroll</h3>
-                <button class="gm-close" onclick="Game.closeMenu()" aria-label="Lukk meny">&times;</button>
+                <button class="gm-close" data-action="close-menu" aria-label="Lukk meny">&times;</button>
             </div>
             <div class="gm-panel-body" id="gm-panel-body"></div>
         </div>
@@ -515,7 +520,7 @@
                 <div class="pass-phone-icon">&#128241;</div>
                 <h2>Gi telefonen til</h2>
                 <p class="pass-phone-name" id="pass-phone-name"></p>
-                <button class="btn btn-primary btn-large" onclick="Game.onPlayerReady()">Jeg er klar!</button>
+                <button class="btn btn-primary btn-large" data-action="player-ready">Jeg er klar!</button>
             </div>
         </div>
 
@@ -526,8 +531,8 @@
                 <h1 id="winner-name"></h1>
                 <p class="winner-subtitle">vant spillet!</p>
                 <div id="final-scores" class="final-scores"></div>
-                <button class="btn btn-primary btn-large" onclick="App.restart()">Spill igjen</button>
-                <button class="btn btn-ghost" onclick="App.showScreen('screen-welcome')">Hovedmeny</button>
+                <button class="btn btn-primary btn-large" data-action="restart">Spill igjen</button>
+                <button class="btn btn-ghost" data-action="show-welcome">Hovedmeny</button>
             </div>
         </div>
 

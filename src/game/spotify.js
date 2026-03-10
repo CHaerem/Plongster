@@ -1,7 +1,11 @@
 // Spotify embed playback control
 // Manages the IFrame API controller, loading, retries, and UI state
 
+import { createDebounce } from '../utils.js';
 import { Phase, transition } from './phases.js';
+
+const _skipDebounce = createDebounce(500);
+const _tradeDebounce = createDebounce(500);
 
 export const spotifyMethods = {
     _loadGeneration: 0,
@@ -99,7 +103,7 @@ export const spotifyMethods = {
                 if (wasPlaying && e.data.position === 0) {
                     this._updatePlaybackUI('paused');
                     const text = document.querySelector('.listening-text');
-                    if (text) text.textContent = 'Sangen er ferdig — trykk for å spille igjen';
+                    if (text) text.textContent = 'Sangen er ferdig \u2014 trykk for \u00e5 spille igjen';
                 } else {
                     this._updatePlaybackUI('paused');
                 }
@@ -118,7 +122,7 @@ export const spotifyMethods = {
         const iframeEl = document.getElementById('spotify-iframe');
 
         if (attempt > 0) {
-            document.querySelector('.listening-text').textContent = 'Prøver igjen...';
+            document.querySelector('.listening-text').textContent = 'Pr\u00f8ver igjen...';
         }
 
         this._loadTimeout = setTimeout(() => {
@@ -132,7 +136,7 @@ export const spotifyMethods = {
             } else {
                 console.warn('Spotify embed timeout after retries');
                 this._updatePlaybackUI('ready');
-                document.querySelector('.listening-text').textContent = 'Trykk for å prøve igjen';
+                document.querySelector('.listening-text').textContent = 'Trykk for \u00e5 pr\u00f8ve igjen';
             }
         }, 4000);
 
@@ -150,7 +154,7 @@ export const spotifyMethods = {
                 this._loadTimeout = null;
             }
             this._updatePlaybackUI('ready');
-            document.querySelector('.listening-text').textContent = 'Trykk for å prøve igjen';
+            document.querySelector('.listening-text').textContent = 'Trykk for \u00e5 pr\u00f8ve igjen';
         }
     },
 
@@ -192,7 +196,7 @@ export const spotifyMethods = {
                 }
                 bars.style.display = 'none';
                 controls.style.display = 'flex';
-                text.textContent = 'Trykk for å spille';
+                text.textContent = 'Trykk for \u00e5 spille';
                 break;
 
             case 'playing':
@@ -218,7 +222,7 @@ export const spotifyMethods = {
                 }
                 bars.style.display = 'none';
                 controls.style.display = 'flex';
-                text.textContent = 'Trykk for å spille';
+                text.textContent = 'Trykk for \u00e5 spille';
                 break;
 
             case 'error':
@@ -233,8 +237,8 @@ export const spotifyMethods = {
                 controls.style.display = 'flex';
                 text.innerHTML =
                     'Spotify kunne ikke lastes.<br>' +
-                    '<button class="btn btn-ghost btn-sm" onclick="Game.replayFromStart()" style="margin-top:8px">Prøv igjen</button> ' +
-                    '<button class="btn btn-ghost btn-sm" onclick="Game.skipSong()" style="margin-top:8px">Hopp over</button>';
+                    '<button class="btn btn-ghost btn-sm" data-action="replay" style="margin-top:8px">Pr\u00f8v igjen</button> ' +
+                    '<button class="btn btn-ghost btn-sm" data-action="skip-song" style="margin-top:8px">Hopp over</button>';
                 break;
         }
     },
@@ -305,12 +309,7 @@ export const spotifyMethods = {
     },
 
     skipSongWithToken() {
-        if (this._skipDebounce) return;
-        this._skipDebounce = true;
-        setTimeout(() => {
-            this._skipDebounce = false;
-        }, 500);
-
+        if (_skipDebounce()) return;
         const player = this.currentPlayer;
         if (player.tokens < 1) return;
         player.tokens -= 1;
@@ -320,12 +319,7 @@ export const spotifyMethods = {
     },
 
     tradeTokensForCard() {
-        if (this._tradeDebounce) return;
-        this._tradeDebounce = true;
-        setTimeout(() => {
-            this._tradeDebounce = false;
-        }, 500);
-
+        if (_tradeDebounce()) return;
         const player = this.currentPlayer;
         if (player.tokens < 3) return;
 
