@@ -80,6 +80,15 @@ jobs:
           rm -rf gh-pages/test
           mkdir -p gh-pages/test
           rsync -a --exclude='.git' --exclude='gh-pages' . gh-pages/test/
+          PR_NUM="${{ github.event.pull_request.number }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          # Escape HTML special characters in PR title
+          PR_TITLE="${PR_TITLE//&/&amp;}"
+          PR_TITLE="${PR_TITLE//</&lt;}"
+          PR_TITLE="${PR_TITLE//>/&gt;}"
+          PR_TITLE="${PR_TITLE//\"/&quot;}"
+          sed -i "s|<div id=\"pr-preview-banner\"></div>|<div id=\"pr-preview-banner\">Preview av <a href=\"${PR_URL}\">#${PR_NUM}: ${PR_TITLE}</a></div>|" gh-pages/test/index.html
           cd gh-pages
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
