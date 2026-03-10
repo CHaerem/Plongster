@@ -1,6 +1,7 @@
 # Hitster - Claude Code Instructions
 
 ## Project Overview
+
 Norwegian music quiz PWA — players place songs chronologically on a timeline.
 Vanilla JavaScript, no frameworks, no build step. Deployed as static files to GitHub Pages.
 
@@ -31,15 +32,18 @@ node tools/generate-songs.js <spotify-playlist-url>
 Single-page app with 5 screens managed by showing/hiding divs (no router). ES modules, no build step.
 
 **Entry point:**
+
 - `index.html` — All UI screens and overlays
 - `main.js` — Entry point: composes `Game` from modules, exposes `App`/`Game` on `window`, initializes app
 
 **App & data modules:**
+
 - `src/app.js` — App controller: screen management, setup, playlist loading, genre filtering
 - `src/songs.js` — Songs store (get/set/reset), lazy-loads `songs-data.js` via dynamic `import()`
 - `src/utils.js` — Shared utilities: `escapeHtml()`, `shuffleArray()`, `isValidSong()`, `extractYear()`
 
 **Game modules:**
+
 - `src/game/engine.js` — Core game logic: init, turns, placement, challenges, tokens
 - `src/game/ui.js` — DOM rendering: timeline, scores, overlays, game actions
 - `src/game/spotify.js` — Spotify embed playback control and retry logic
@@ -48,6 +52,7 @@ Single-page app with 5 screens managed by showing/hiding divs (no router). ES mo
 - `src/game/phases.js` — Game phase state machine: `Phase` enum and validated transitions
 
 **Spotify modules:**
+
 - `src/spotify/auth.js` — Anonymous Spotify token acquisition
 - `src/spotify/playlist.js` — Playlist loading (Web API + embed scraping fallback)
 - `src/spotify/cors-proxy.js` — CORS proxy rotation layer
@@ -56,6 +61,7 @@ Single-page app with 5 screens managed by showing/hiding divs (no router). ES mo
 - `src/spotify/api.js` — Authenticated Spotify Web API client (playlists, tracks)
 
 **Data & infrastructure:**
+
 - `songs-data.js` — Raw song database (`SONGS_DATA` array, 1200+ songs)
 - `style.css` — Dark theme, CSS variables, responsive, mobile-first
 - `sw.js` — Service worker for PWA offline caching
@@ -81,6 +87,7 @@ Single-page app with 5 screens managed by showing/hiding divs (no router). ES mo
 ## Development Workflow
 
 After the user approves a plan, complete the **entire** development cycle autonomously:
+
 1. Create feature branch from `main`
 2. Implement changes
 3. Run `node test.js` — fix until all tests pass
@@ -97,7 +104,7 @@ Trunk-based development — short-lived feature branches only.
 - `main` is protected — all changes via PR
 - Feature branches → PR to `main` → each PR gets a live preview URL
 - Auto-delete branches on merge is enabled
-- Commit messages: imperative mood, explain *why* not *what*
+- Commit messages: imperative mood, explain _why_ not _what_
 
 ## Testing
 
@@ -107,11 +114,15 @@ Always run `node test.js` and `npx playwright test` before committing.
 
 **E2E tests** (`tests/e2e/game-flow.spec.js`): Playwright + Chromium. 10 tests covering: welcome screen, setup flow, player management, quick start, game state persistence. Uses Python HTTP server on port 8081.
 
+## Design Principles
+
+- **No auth required**: The app is designed to work fully without Spotify login. OAuth is optional (limited to 5 users under Spotify Development Mode). All core features — playback, built-in songs, playlist URL import — work without authentication.
+
 ## Key Patterns
 
-- **Spotify playback**: Embed IFrame API with retry logic (5 retries, exponential backoff)
-- **API fallback chain**: Authenticated API → anonymous token → embed scraping → CORS proxy
-- **Spotify OAuth PKCE**: Full authorization code flow with PKCE, token refresh, stored in `hitster-spotify-token`
+- **Spotify playback**: Embed IFrame API with retry logic (5 retries, exponential backoff) — no auth needed
+- **API fallback chain**: Anonymous token → embed scraping → CORS proxy (auth optional, not required)
+- **Spotify OAuth PKCE**: Optional login for browsing private playlists (5-user limit in Dev Mode)
 - **Generation-based callbacks**: `this._generation` counter invalidates stale async operations
 - **XSS prevention**: Always use `escapeHtml()` for user/song data in innerHTML
 - **Service worker**: Stale-while-revalidate for app shell, network-first for navigation
@@ -121,6 +132,7 @@ Always run `node test.js` and `npx playwright test` before committing.
 ## Deploy
 
 Two GitHub Actions workflows:
+
 - `deploy.yml` — on push to `main`: runs unit tests + E2E, deploys to GitHub Pages (gh-pages branch)
 - `pr-preview.yml` — on PR: runs unit tests + E2E, deploys preview to `/test/` (fixed URL, always shows latest PR)
 
