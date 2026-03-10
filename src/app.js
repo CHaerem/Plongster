@@ -443,7 +443,7 @@ export const App = {
         const el = document.getElementById('songs-help-text');
         if (!el) return;
         el.textContent = text;
-        el.className = 'songs-help-text' + (type ? ' ' + type : '');
+        el.className = `songs-help-text${type ? ` ${type}` : ''}`;
     },
 
     resetSongs() {
@@ -508,7 +508,7 @@ export const App = {
             if (!availableGenres.has(g.id)) continue;
 
             const chip = document.createElement('button');
-            chip.className = 'genre-chip' + (this._selectedGenres.has(g.id) ? ' active' : '');
+            chip.className = `genre-chip${this._selectedGenres.has(g.id) ? ' active' : ''}`;
             chip.innerHTML = `<span class="chip-icon">${g.icon}</span> ${g.label}`;
             chip.setAttribute('aria-pressed', this._selectedGenres.has(g.id));
             chip.addEventListener('click', () => this.toggleGenre(g.id));

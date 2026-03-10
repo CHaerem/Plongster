@@ -59,7 +59,7 @@ async function getClientCredentialsToken(clientId, clientSecret) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            Authorization: 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64'),
+            Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
         },
         body: 'grant_type=client_credentials',
     });

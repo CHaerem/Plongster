@@ -20,6 +20,9 @@ export const engineMethods = {
         this.challengePhase = null;
         this.titleArtistClaimed = false;
         this.gamePhase = Phase.IDLE;
+        this._dropDebounce = false;
+        this._challengeDebounce = false;
+        this._nextTurnDebounce = false;
 
         this.players = playerNames.map(name => {
             const startCard = this.drawSong();
@@ -76,14 +79,12 @@ export const engineMethods = {
         const winner = [...this.players].sort((a, b) => b.score - a.score)[0];
         document.getElementById('winner-name').textContent = winner.name;
         const scoresEl = document.getElementById('final-scores');
-        scoresEl.innerHTML =
-            '<p style="margin-bottom:10px;color:var(--text-dim)">Alle sanger er brukt opp!</p>' +
-            this.players
-                .map(
-                    p =>
-                        `<div class="final-score-row"><span>${escapeHtml(p.name)}</span><span>${p.score} kort \u00B7 \u{1F536}${p.tokens}</span></div>`,
-                )
-                .join('');
+        scoresEl.innerHTML = `<p style="margin-bottom:10px;color:var(--text-dim)">Alle sanger er brukt opp!</p>${this.players
+            .map(
+                p =>
+                    `<div class="final-score-row"><span>${escapeHtml(p.name)}</span><span>${p.score} kort \u00B7 \u{1F536}${p.tokens}</span></div>`,
+            )
+            .join('')}`;
         localStorage.removeItem('plongster-game-state');
         window.App.showScreen('screen-winner');
     },
@@ -258,7 +259,7 @@ export const engineMethods = {
                 const player = this.players[cp.originalPlayerIndex];
                 if (player.tokens >= this.MAX_TOKENS) {
                     claimBtn.disabled = true;
-                    claimBtn.textContent = '\uD83C\uDFA4 Maks tokens (' + this.MAX_TOKENS + ')';
+                    claimBtn.textContent = `\uD83C\uDFA4 Maks tokens (${this.MAX_TOKENS})`;
                 } else {
                     claimBtn.disabled = false;
                     claimBtn.textContent = '\uD83C\uDFA4 Jeg vet tittel og artist (+1 \u{1F536})';
@@ -416,6 +417,11 @@ export const engineMethods = {
     },
 
     selectChallenger(playerIndex) {
+        if (this._challengeDebounce) return;
+        this._challengeDebounce = true;
+        setTimeout(() => {
+            this._challengeDebounce = false;
+        }, 300);
         if (this.players[playerIndex].tokens < 1) return;
         const cp = this.challengePhase;
         this.players[playerIndex].tokens = Math.max(0, this.players[playerIndex].tokens - 1);
@@ -715,6 +721,11 @@ export const engineMethods = {
     },
 
     nextTurn() {
+        if (this._nextTurnDebounce) return;
+        this._nextTurnDebounce = true;
+        setTimeout(() => {
+            this._nextTurnDebounce = false;
+        }, 300);
         this.currentSong = null;
         this.challengePhase = null;
         this.titleArtistClaimed = false;

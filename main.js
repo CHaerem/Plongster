@@ -61,6 +61,16 @@ document.addEventListener('keydown', e => {
     }
 });
 
+// ─── Global Error Handling ───
+
+window.onerror = (msg, source, line, col, error) => {
+    console.error('Uncaught error:', { msg, source, line, col, stack: error?.stack });
+};
+
+window.addEventListener('unhandledrejection', event => {
+    console.error('Unhandled promise rejection:', event.reason);
+});
+
 // ─── Spotify IFrame API callback ───
 
 window.onSpotifyIframeApiReady = IFrameAPI => {
@@ -73,6 +83,34 @@ const clientIdMeta = document.querySelector('meta[name="spotify-client-id"]');
 if (clientIdMeta) {
     setClientId(clientIdMeta.content);
 }
+
+// ─── PWA Install Prompt ───
+
+let _deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _deferredInstallPrompt = e;
+    const btn = document.getElementById('btn-install');
+    if (btn) btn.style.display = '';
+});
+
+window.addEventListener('appinstalled', () => {
+    _deferredInstallPrompt = null;
+    const btn = document.getElementById('btn-install');
+    if (btn) btn.style.display = 'none';
+});
+
+window.installApp = async () => {
+    if (!_deferredInstallPrompt) return;
+    _deferredInstallPrompt.prompt();
+    const { outcome } = await _deferredInstallPrompt.userChoice;
+    if (outcome === 'accepted') {
+        _deferredInstallPrompt = null;
+        const btn = document.getElementById('btn-install');
+        if (btn) btn.style.display = 'none';
+    }
+};
 
 // ─── Network status detection ───
 
