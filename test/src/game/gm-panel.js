@@ -30,32 +30,32 @@ export const gmMethods = {
             html += `
                 <div class="gm-player-row">
                     <div class="gm-player-order">
-                        <button class="btn-icon btn-xs" onclick="Game.gmMovePlayer(${i}, -1)" ${i === 0 ? 'disabled' : ''}>▲</button>
-                        <button class="btn-icon btn-xs" onclick="Game.gmMovePlayer(${i}, 1)" ${i === this.players.length - 1 ? 'disabled' : ''}>▼</button>
+                        <button class="btn-icon btn-xs" data-action="gm-move-player" data-player="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''}>▲</button>
+                        <button class="btn-icon btn-xs" data-action="gm-move-player" data-player="${i}" data-dir="1" ${i === this.players.length - 1 ? 'disabled' : ''}>▼</button>
                     </div>
                     <span class="gm-player-name">${escapeHtml(player.name)}</span>
                     <div class="gm-player-actions">
-                        <button class="btn-icon btn-sm" onclick="Game.gmAdjustScore(${i}, -1)">\u2212</button>
+                        <button class="btn-icon btn-sm" data-action="gm-adjust-score" data-player="${i}" data-delta="-1">\u2212</button>
                         <span class="gm-player-score">${player.score}</span>
-                        <button class="btn-icon btn-sm" onclick="Game.gmAdjustScore(${i}, 1)">+</button>
+                        <button class="btn-icon btn-sm" data-action="gm-adjust-score" data-player="${i}" data-delta="1">+</button>
                         <span class="gm-player-tokens-inline">
-                            <button class="btn-icon btn-xs" onclick="Game.gmAdjustTokens(${i}, -1)">\u2212</button>
+                            <button class="btn-icon btn-xs" data-action="gm-adjust-tokens" data-player="${i}" data-delta="-1">\u2212</button>
                             <span>\u{1F536}${player.tokens}</span>
-                            <button class="btn-icon btn-xs" onclick="Game.gmAdjustTokens(${i}, 1)">+</button>
+                            <button class="btn-icon btn-xs" data-action="gm-adjust-tokens" data-player="${i}" data-delta="1">+</button>
                         </span>
-                        ${this.players.length > 2 ? `<button class="btn-icon btn-sm gm-btn-remove" onclick="Game.gmRemovePlayer(${i})">&times;</button>` : ''}
+                        ${this.players.length > 2 ? `<button class="btn-icon btn-sm gm-btn-remove" data-action="gm-remove-player" data-player="${i}">&times;</button>` : ''}
                     </div>
                 </div>`;
         });
         html += `
             <div class="gm-add-player-row">
                 <input type="text" id="gm-new-player-name" placeholder="Ny spiller" maxlength="15">
-                <button class="btn btn-secondary btn-sm" onclick="Game.gmAddPlayer()">+</button>
+                <button class="btn btn-secondary btn-sm" data-action="gm-add-player">+</button>
             </div>`;
         html += '</div>';
 
         html += '<div class="gm-section"><h4>Rediger tidslinje</h4>';
-        html += '<select id="gm-timeline-player" onchange="Game.gmRenderTimeline()">';
+        html += '<select id="gm-timeline-player" data-action="gm-render-timeline">';
         this.players.forEach((player, i) => {
             html += `<option value="${i}" ${i === this.currentPlayerIndex ? 'selected' : ''}>${escapeHtml(player.name)} (${player.timeline.length} kort)</option>`;
         });
@@ -65,11 +65,11 @@ export const gmMethods = {
 
         html += `<div class="gm-section"><h4>Info</h4>
             <p class="gm-empty">${this.deck.length} sanger igjen i bunken</p>
-            <button class="btn btn-secondary gm-btn-skip" onclick="Game.skipSong(); Game.closeMenu();" style="margin-top:10px; width:100%">⏭ Hopp over sang</button>
+            <button class="btn btn-secondary gm-btn-skip" data-action="gm-skip-song" style="margin-top:10px; width:100%">⏭ Hopp over sang</button>
         </div>`;
 
         html += `<div class="gm-section">
-            <button class="btn btn-danger gm-btn-restart" onclick="Game.gmRestart()">Start på nytt</button>
+            <button class="btn btn-danger gm-btn-restart" data-action="gm-restart">Start på nytt</button>
         </div>`;
 
         body.innerHTML = html;
@@ -93,8 +93,8 @@ export const gmMethods = {
             <div class="gm-card">
                 <span class="gm-card-year">${card.year}</span>
                 <span class="gm-card-title">${escapeHtml(card.title)}</span>
-                <button class="gm-card-edit" onclick="Game.gmStartEditCard(${playerIndex}, ${ci})" title="Rediger">✏️</button>
-                <button class="gm-card-remove" onclick="Game.gmRemoveCard(${playerIndex}, ${ci})">&times;</button>
+                <button class="gm-card-edit" data-action="gm-start-edit-card" data-player="${playerIndex}" data-card="${ci}" title="Rediger">✏️</button>
+                <button class="gm-card-remove" data-action="gm-remove-card" data-player="${playerIndex}" data-card="${ci}">&times;</button>
             </div>
         `,
             )
@@ -117,6 +117,26 @@ export const gmMethods = {
         this.renderScores();
         this.renderCurrentTurn();
         this.renderMenu();
+    },
+
+    // ─── Shared Card Insertion ───
+
+    _gmInsertCard(playerIndex, card) {
+        const player = this.players[playerIndex];
+        player.timeline.push(card);
+        player.timeline.sort((a, b) => a.year - b.year);
+        player.score = player.timeline.length;
+
+        this.saveState();
+        this.renderScores();
+        this.renderTimeline();
+        this.renderMenu();
+
+        const winner = this.players.find(p => p.score >= this.cardsToWin);
+        if (winner) {
+            this.closeMenu();
+            this.showWinner(winner);
+        }
     },
 
     gmAdjustScore(playerIndex, delta) {
@@ -316,8 +336,8 @@ export const gmMethods = {
                     <input type="text" id="gm-edit-artist" value="${escapeHtml(card.artist)}" class="gm-edit-input" placeholder="Artist">
                 </div>
                 <div class="gm-edit-row gm-edit-actions">
-                    <button class="btn btn-primary btn-sm" onclick="Game.gmSaveEditCard(${playerIndex}, ${cardIndex})">Lagre</button>
-                    <button class="btn btn-ghost btn-sm" onclick="Game.gmCancelEditCard()">Avbryt</button>
+                    <button class="btn btn-primary btn-sm" data-action="gm-save-edit-card" data-player="${playerIndex}" data-card="${cardIndex}">Lagre</button>
+                    <button class="btn btn-ghost btn-sm" data-action="gm-cancel-edit-card">Avbryt</button>
                 </div>
             </div>`;
     },
@@ -352,11 +372,11 @@ export const gmMethods = {
         const container = document.getElementById('gm-timeline-cards');
         container.innerHTML = `
             <div class="gm-add-card-search">
-                <input type="text" id="gm-song-search" class="gm-search-input" placeholder="Søk tittel eller artist..." oninput="Game.gmSearchSong(this.value, ${playerIndex})" autocomplete="off">
+                <input type="text" id="gm-song-search" class="gm-search-input" placeholder="Søk tittel eller artist..." data-action="gm-search-song" data-player="${playerIndex}" autocomplete="off">
                 <div id="gm-search-results" class="gm-search-results"></div>
                 <div class="gm-search-actions">
-                    <button class="btn btn-secondary btn-sm" onclick="Game.gmAddRandomCard(${playerIndex})">🎲 Tilfeldig</button>
-                    <button class="btn btn-ghost btn-sm" onclick="Game.gmRenderTimeline()">Avbryt</button>
+                    <button class="btn btn-secondary btn-sm" data-action="gm-add-random-card" data-player="${playerIndex}">🎲 Tilfeldig</button>
+                    <button class="btn btn-ghost btn-sm" data-action="gm-render-timeline">Avbryt</button>
                 </div>
             </div>`;
         document.getElementById('gm-song-search').focus();
@@ -386,7 +406,7 @@ export const gmMethods = {
         resultsEl.innerHTML = this._searchResults
             .map(
                 (song, i) => `
-            <div class="gm-search-result" onclick="Game.gmAddSearchedCardByIndex(${playerIndex}, ${i})">
+            <div class="gm-search-result" data-action="gm-add-searched-card" data-player="${playerIndex}" data-song-index="${i}">
                 <span class="gm-search-year">${song.year}</span>
                 <span class="gm-search-title">${escapeHtml(song.title)}</span>
                 <span class="gm-search-artist">${escapeHtml(song.artist)}</span>
@@ -396,49 +416,16 @@ export const gmMethods = {
             .join('');
     },
 
-    gmAddSearchedCardByIndex(playerIndex, songIndex) {
+    gmAddSearchedCard(playerIndex, songIndex) {
         const song = this._searchResults[songIndex];
         if (!song) return;
-        this.gmAddSearchedCard(playerIndex, song.title, song.artist, song.year);
-    },
-
-    gmAddSearchedCard(playerIndex, title, artist, year) {
-        const player = this.players[playerIndex];
-        const card = { title, artist, year };
-        player.timeline.push(card);
-        player.timeline.sort((a, b) => a.year - b.year);
-        player.score = player.timeline.length;
-
-        this.saveState();
-        this.renderScores();
-        this.renderTimeline();
-        this.renderMenu();
-
-        const winner = this.players.find(p => p.score >= this.cardsToWin);
-        if (winner) {
-            this.closeMenu();
-            this.showWinner(winner);
-        }
+        this._gmInsertCard(playerIndex, { title: song.title, artist: song.artist, year: song.year });
     },
 
     gmAddRandomCard(playerIndex) {
         const card = this.drawSong();
         if (!card) return;
-        const player = this.players[playerIndex];
-        player.timeline.push({ title: card.title, artist: card.artist, year: card.year });
-        player.timeline.sort((a, b) => a.year - b.year);
-        player.score = player.timeline.length;
-
-        this.saveState();
-        this.renderScores();
-        this.renderTimeline();
-        this.renderMenu();
-
-        const winner = this.players.find(p => p.score >= this.cardsToWin);
-        if (winner) {
-            this.closeMenu();
-            this.showWinner(winner);
-        }
+        this._gmInsertCard(playerIndex, { title: card.title, artist: card.artist, year: card.year });
     },
 
     gmRestart() {

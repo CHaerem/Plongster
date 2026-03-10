@@ -43,3 +43,19 @@ export function shuffleArray(arr) {
     }
     return shuffled;
 }
+
+/**
+ * Create a debounce guard that blocks rapid repeated calls.
+ * Returns a function: call it before the action — returns true if blocked.
+ */
+export function createDebounce(delay = 300) {
+    let blocked = false;
+    return () => {
+        if (blocked) return true;
+        blocked = true;
+        setTimeout(() => {
+            blocked = false;
+        }, delay);
+        return false;
+    };
+}
