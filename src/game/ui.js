@@ -57,8 +57,12 @@ export const uiMethods = {
 
         for (let i = 0; i < timeline.length; i++) {
             const card = timeline[i];
+            const coverImg = card.coverUrl
+                ? `<img src="${card.coverUrl}" alt="" class="card-cover" loading="lazy">`
+                : '';
             html += `
                 <div class="timeline-card">
+                    ${coverImg}
                     <span class="card-year">${card.year}</span>
                     <div class="card-info">
                         <div class="card-title">${escapeHtml(card.title)}</div>

@@ -340,6 +340,7 @@ export const spotifyMethods = {
             title: card.title,
             artist: card.artist,
             year: card.year,
+            coverUrl: card.coverUrl || null,
         });
         player.score = player.timeline.length;
 

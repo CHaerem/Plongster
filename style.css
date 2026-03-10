@@ -888,6 +888,15 @@ h3 {
     border: 2px solid var(--bg);
 }
 
+.timeline-card .card-cover {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    object-fit: cover;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
 .timeline-card .card-year {
     font-weight: 800;
     font-size: 16px;
@@ -1035,6 +1044,15 @@ body.overlay-active {
 
 .reveal-song-info {
     margin: 20px 0;
+}
+
+.reveal-song-cover {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    object-fit: cover;
+    margin: 0 auto 12px;
+    display: block;
 }
 
 .reveal-song-name {
