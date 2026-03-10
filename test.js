@@ -2,9 +2,21 @@
 // Integration, regression, and edge case tests
 const vm = require('vm');
 const fs = require('fs');
+const path = require('path');
 
-const songsCode = fs.readFileSync('songs.js', 'utf-8');
-const gameCode = fs.readFileSync('game.js', 'utf-8');
+// Strip ES module syntax so files can run in a VM context
+function stripModule(code) {
+    return code
+        .replace(/^import\s+\{[^}]*\}\s+from\s+['"][^'"]+['"];?\s*$/gm, '')
+        .replace(/^import\s+['"][^'"]+['"];?\s*$/gm, '')
+        .replace(/^export\s+(const|let|var|function|class|async\s+function)/gm, '$1')
+        .replace(/^export\s+default\s+/gm, 'const _default = ')
+        .replace(/^export\s+\{[^}]*\};?\s*$/gm, '');
+}
+
+function readModule(filePath) {
+    return stripModule(fs.readFileSync(path.join(__dirname, filePath), 'utf-8'));
+}
 
 const mockElement = () => ({
     textContent: '',
@@ -51,18 +63,90 @@ const sandbox = {
     setTimeout: setTimeout,
     clearTimeout: clearTimeout,
     Promise: Promise,
+    Set: Set,
     fetch: () => Promise.resolve({ json: () => ({}) }),
     navigator: { vibrate: () => {} },
-    App: { showScreen: () => {} },
 };
 sandbox.window = sandbox;
 
 const ctx = vm.createContext(sandbox);
+
+// Load modules in dependency order, exposing symbols on the sandbox
+// 1. Songs data
+vm.runInContext('(function(){' + readModule('songs-data.js') + '\nthis.SONGS_DATA=SONGS_DATA;\n}).call(this);', ctx);
+
+// 2. Utilities (escapeHtml, shuffleArray)
 vm.runInContext(
-    '(function(){' + songsCode + '\nthis.SONGS_DATABASE=SONGS_DATABASE;this.shuffleArray=shuffleArray;\n}).call(this);',
+    '(function(){' +
+        readModule('src/utils.js') +
+        '\nthis.escapeHtml=escapeHtml;this.shuffleArray=shuffleArray;\n}).call(this);',
     ctx,
 );
-vm.runInContext('(function(){' + gameCode + '\nthis.Game=Game;\n}).call(this);', ctx);
+
+// 3. Songs store (uses SONGS_DATA)
+vm.runInContext(
+    '(function(){' +
+        readModule('src/songs.js') +
+        '\nthis.getSongs=getSongs;this.setSongs=setSongs;this.resetSongs=resetSongs;this.getAllSongs=getAllSongs;\n}).call(this);',
+    ctx,
+);
+
+// 4. Game modules — load and expose method objects
+vm.runInContext(
+    '(function(){' + readModule('src/game/state.js') + '\nthis.stateMethods=stateMethods;\n}).call(this);',
+    ctx,
+);
+vm.runInContext(
+    '(function(){' + readModule('src/game/spotify.js') + '\nthis.spotifyMethods=spotifyMethods;\n}).call(this);',
+    ctx,
+);
+vm.runInContext('(function(){' + readModule('src/game/ui.js') + '\nthis.uiMethods=uiMethods;\n}).call(this);', ctx);
+vm.runInContext(
+    '(function(){' + readModule('src/game/engine.js') + '\nthis.engineMethods=engineMethods;\n}).call(this);',
+    ctx,
+);
+vm.runInContext(
+    '(function(){' + readModule('src/game/gm-panel.js') + '\nthis.gmMethods=gmMethods;\n}).call(this);',
+    ctx,
+);
+
+// 5. Compose Game object (mirrors main.js)
+vm.runInContext(
+    `
+    const Game = {
+        players: [],
+        currentPlayerIndex: 0,
+        cardsToWin: 10,
+        deck: [],
+        currentSong: null,
+        usedSongs: new Set(),
+        isWaitingForPlacement: false,
+        selectedDropIndex: null,
+        spotifyAPI: null,
+        embedController: null,
+        hasPlayedSong: false,
+        _isPlaying: false,
+        challengePhase: null,
+        titleArtistClaimed: false,
+        MAX_TOKENS: 5,
+    };
+    // Use defineProperties to preserve getters (e.g., currentPlayer)
+    [engineMethods, uiMethods, spotifyMethods, stateMethods, gmMethods].forEach(function(methods) {
+        Object.defineProperties(Game, Object.getOwnPropertyDescriptors(methods));
+    });
+    this.Game = Game;
+
+    // App stub for cross-references
+    this.App = { showScreen: function(){} };
+    this.window.App = this.App;
+    this.window.Game = Game;
+
+    // Legacy compatibility aliases used by tests
+    this.SONGS_DATABASE = getSongs();
+    this.shuffleArray = shuffleArray;
+`,
+    ctx,
+);
 
 const G = sandbox.Game;
 const DB = sandbox.SONGS_DATABASE;

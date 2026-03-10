@@ -5,9 +5,9 @@
     "private": true,
     "scripts": {
         "test": "node test.js",
-        "lint": "eslint *.js",
-        "format": "prettier --write '*.js' '*.css' '*.html'",
-        "format:check": "prettier --check '*.js' '*.css' '*.html'"
+        "lint": "eslint *.js src/**/*.js",
+        "format": "prettier --write '*.js' 'src/**/*.js' '*.css' '*.html'",
+        "format:check": "prettier --check '*.js' 'src/**/*.js' '*.css' '*.html'"
     },
     "devDependencies": {
         "eslint": "^9.0.0",

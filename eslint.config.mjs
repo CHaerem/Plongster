@@ -65,35 +65,18 @@ export default [
             'eqeqeq': ['warn', 'always'],
         },
     },
-    // ─── songs.js: defines SONGS_DATABASE and shuffleArray ───
+    // ─── ES module source files (main.js, src/**) ───
     {
-        files: ['songs.js'],
+        files: ['main.js', 'src/**/*.js', 'songs-data.js'],
         languageOptions: {
             ecmaVersion: 2022,
-            sourceType: 'script',
+            sourceType: 'module',
             globals: browserGlobals,
         },
-        rules: {
-            'no-unused-vars': 'off',
-        },
     },
-    // ─── game.js: defines Game, uses globals from songs.js ───
+    // ─── Legacy script files (songs.js, game.js, app.js) — kept for reference ───
     {
-        files: ['game.js'],
-        languageOptions: {
-            ecmaVersion: 2022,
-            sourceType: 'script',
-            globals: {
-                ...browserGlobals,
-                SONGS_DATABASE: 'readonly',
-                shuffleArray: 'readonly',
-                App: 'readonly',
-            },
-        },
-    },
-    // ─── app.js: defines App, uses globals from songs.js and game.js ───
-    {
-        files: ['app.js'],
+        files: ['songs.js', 'game.js', 'app.js'],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'script',
@@ -101,8 +84,12 @@ export default [
                 ...browserGlobals,
                 SONGS_DATABASE: 'writable',
                 shuffleArray: 'readonly',
+                App: 'readonly',
                 Game: 'readonly',
             },
+        },
+        rules: {
+            'no-unused-vars': 'off',
         },
     },
     // ─── Service worker ───
