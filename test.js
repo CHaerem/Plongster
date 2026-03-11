@@ -81,7 +81,7 @@ vm.runInContext(`(function(){${readModule('songs-data.js')}\nthis.SONGS_DATA=SON
 vm.runInContext(
     `(function(){${readModule(
         'src/utils.js',
-    )}\nthis.escapeHtml=escapeHtml;this.shuffleArray=shuffleArray;this.isValidSong=isValidSong;this.extractYear=extractYear;\n}).call(this);`,
+    )}\nthis.escapeHtml=escapeHtml;this.shuffleArray=shuffleArray;this.isValidSong=isValidSong;this.extractYear=extractYear;this.createDebounce=createDebounce;\n}).call(this);`,
     ctx,
 );
 
@@ -108,6 +108,14 @@ vm.runInContext(
 vm.runInContext(`(function(){${readModule('src/game/ui.js')}\nthis.uiMethods=uiMethods;\n}).call(this);`, ctx);
 vm.runInContext(
     `(function(){${readModule('src/game/engine.js')}\nthis.engineMethods=engineMethods;\n}).call(this);`,
+    ctx,
+);
+vm.runInContext(
+    `(function(){${readModule('src/game/placement.js')}\nthis.placementMethods=placementMethods;\n}).call(this);`,
+    ctx,
+);
+vm.runInContext(
+    `(function(){${readModule('src/game/challenges.js')}\nthis.challengeMethods=challengeMethods;\n}).call(this);`,
     ctx,
 );
 vm.runInContext(`(function(){${readModule('src/game/gm-panel.js')}\nthis.gmMethods=gmMethods;\n}).call(this);`, ctx);
@@ -140,7 +148,7 @@ vm.runInContext(
         MAX_TOKENS: 5,
     };
     // Use defineProperties to preserve getters (e.g., currentPlayer)
-    [engineMethods, uiMethods, spotifyMethods, stateMethods, gmMethods].forEach(function(methods) {
+    [engineMethods, placementMethods, challengeMethods, uiMethods, spotifyMethods, stateMethods, gmMethods].forEach(function(methods) {
         Object.defineProperties(Game, Object.getOwnPropertyDescriptors(methods));
     });
     this.Game = Game;

@@ -1,5 +1,6 @@
 // App controller — screen management, setup, playlist loading, genre filtering
 
+import { escapeHtml } from './utils.js';
 import { initSongs, getSongs, setSongs, resetSongs as resetSongsStore, getAllSongs } from './songs.js';
 import { extractPlaylistId } from './spotify/playlist.js';
 import { SPOTIFY_CONFIG } from './spotify/config.js';
@@ -131,7 +132,72 @@ export const App = {
         }
     },
 
-    // ─── Spotify Playlist Loading ───
+    // ─── Spotify Playlist Loading (shared) ───
+
+    async _loadPlaylistById(playlistId, playlistName, saveUrl) {
+        if (this._loadingAbort) this._loadingAbort.abort();
+        this._loadingAbort = new AbortController();
+        const generation = ++this._loadGeneration;
+
+        const badge = document.getElementById('song-source-badge');
+        const resetBtn = document.getElementById('spotify-reset-btn');
+
+        badge.textContent = 'Laster...';
+        badge.className = 'song-source-badge loading';
+        this._showSongStatus(playlistName ? `Henter "${playlistName}"...` : 'Henter sanger fra Spotify...', 'loading');
+
+        try {
+            const signal = this._loadingAbort.signal;
+            const result = await fetchPlaylistTracks(playlistId, signal, (done, total) => {
+                this._showSongStatus(`Henter sanger... (${done}/${total})`, 'loading');
+                badge.textContent = `${done}/${total}...`;
+            });
+
+            if (signal.aborted) return;
+
+            const songs = result.songs;
+            const resolvedName = result.name || playlistName || 'Spilleliste';
+
+            if (!songs || songs.length === 0) {
+                throw new Error('Ingen sanger med utgivelsesår funnet i spillelisten.');
+            }
+
+            const seen = new Set();
+            const unique = songs.filter(s => {
+                const key = `${s.title.toLowerCase()}-${s.artist.toLowerCase()}`;
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+
+            setSongs(unique);
+            this._usingCustomPlaylist = true;
+            if (saveUrl) localStorage.setItem('plongster-playlist-url', saveUrl);
+            try {
+                localStorage.setItem('plongster-playlist-songs', JSON.stringify(unique));
+                localStorage.setItem('plongster-playlist-name', resolvedName);
+            } catch (e) {
+                console.warn('Could not cache songs to localStorage:', e.message);
+            }
+
+            badge.textContent = `${resolvedName} (${unique.length})`;
+            badge.className = 'song-source-badge custom';
+            this._showSongStatus(`${unique.length} sanger lastet fra "${resolvedName}".`, 'success');
+            resetBtn.style.display = '';
+
+            return true;
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            badge.textContent = 'Feil';
+            badge.className = 'song-source-badge error';
+            this._showSongStatus(err.message, 'error');
+            return false;
+        } finally {
+            if (generation === this._loadGeneration) {
+                this._loadingAbort = null;
+            }
+        }
+    },
 
     async loadPlaylist() {
         const input = document.getElementById('playlist-url');
@@ -148,75 +214,15 @@ export const App = {
             return;
         }
 
-        // Playlist import requires Spotify login
         if (!isLoggedIn()) {
             this._showSongStatus('Logg inn med Spotify for å importere spillelister.', 'error');
             return;
         }
 
-        if (this._loadingAbort) this._loadingAbort.abort();
-        this._loadingAbort = new AbortController();
-        const generation = ++this._loadGeneration;
-
-        const badge = document.getElementById('song-source-badge');
-        const resetBtn = document.getElementById('spotify-reset-btn');
         const loadBtn = document.querySelector('.song-url-row .btn');
-
-        badge.textContent = 'Laster...';
-        badge.className = 'song-source-badge loading';
         if (loadBtn) loadBtn.disabled = true;
-        this._showSongStatus('Henter sanger fra Spotify...', 'loading');
-
-        try {
-            const signal = this._loadingAbort.signal;
-
-            const result = await fetchPlaylistTracks(playlistId, signal, (done, total) => {
-                this._showSongStatus(`Henter sanger... (${done}/${total})`, 'loading');
-                badge.textContent = `${done}/${total}...`;
-            });
-
-            if (signal.aborted) return;
-
-            const songs = result.songs;
-            const playlistName = result.name;
-
-            if (!songs || songs.length === 0) {
-                throw new Error('Ingen sanger med utgivelsesår funnet i spillelisten.');
-            }
-
-            const seen = new Set();
-            const unique = songs.filter(s => {
-                const key = `${s.title.toLowerCase()}-${s.artist.toLowerCase()}`;
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            });
-
-            setSongs(unique);
-            this._usingCustomPlaylist = true;
-            localStorage.setItem('plongster-playlist-url', url);
-            try {
-                localStorage.setItem('plongster-playlist-songs', JSON.stringify(unique));
-                localStorage.setItem('plongster-playlist-name', playlistName);
-            } catch (e) {
-                console.warn('Could not cache songs to localStorage:', e.message);
-            }
-
-            badge.textContent = `${playlistName} (${unique.length})`;
-            badge.className = 'song-source-badge custom';
-            this._showSongStatus(`${unique.length} sanger lastet fra "${playlistName}".`, 'success');
-            resetBtn.style.display = '';
-        } catch (err) {
-            if (err.name === 'AbortError') return;
-            badge.textContent = 'Feil';
-            badge.className = 'song-source-badge error';
-            this._showSongStatus(err.message, 'error');
-        } finally {
-            if (generation === this._loadGeneration) {
-                if (loadBtn) loadBtn.disabled = false;
-                this._loadingAbort = null;
-            }
-        }
+        await this._loadPlaylistById(playlistId, null, url);
+        if (loadBtn) loadBtn.disabled = false;
     },
 
     // ─── Spotify Account ───
@@ -228,7 +234,6 @@ export const App = {
         const playlistsEl = document.getElementById('spotify-playlists');
         if (!container) return;
 
-        // Only show if client ID is configured
         if (!SPOTIFY_CONFIG.clientId) {
             container.style.display = 'none';
             if (playlistsEl) playlistsEl.style.display = 'none';
@@ -242,7 +247,6 @@ export const App = {
             userInfo.style.display = '';
             const nameEl = document.getElementById('spotify-user-name');
             nameEl.textContent = getUsername() || 'Tilkoblet';
-            // Auto-load playlists
             if (!this._usingCustomPlaylist) {
                 this.loadPlaylists();
             }
@@ -292,7 +296,7 @@ export const App = {
                 loadMoreBtn.style.display = result.hasMore ? '' : 'none';
             }
         } catch (e) {
-            grid.innerHTML = `<p class="playlist-status playlist-error">${this._escapeAttr(e.message)}</p>`;
+            grid.innerHTML = `<p class="playlist-status playlist-error">${escapeHtml(e.message)}</p>`;
         }
     },
 
@@ -363,77 +367,18 @@ export const App = {
         card.innerHTML = `
             ${img}
             <div class="playlist-info">
-                <span class="playlist-name">${this._escapeAttr(playlist.name)}</span>
+                <span class="playlist-name">${escapeHtml(playlist.name)}</span>
                 <span class="playlist-meta">${playlist.trackCount} sanger</span>
             </div>
         `;
         return card;
     },
 
-    _escapeAttr(str) {
-        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    },
-
     async selectPlaylist(playlistId, playlistName) {
-        if (this._loadingAbort) this._loadingAbort.abort();
-        this._loadingAbort = new AbortController();
-        const generation = ++this._loadGeneration;
-
-        const badge = document.getElementById('song-source-badge');
-        const resetBtn = document.getElementById('spotify-reset-btn');
-
-        badge.textContent = 'Laster...';
-        badge.className = 'song-source-badge loading';
-        this._showSongStatus(`Henter "${playlistName}"...`, 'loading');
-
-        try {
-            const signal = this._loadingAbort.signal;
-            const result = await fetchPlaylistTracks(playlistId, signal, (done, total) => {
-                this._showSongStatus(`Henter sanger... (${done}/${total})`, 'loading');
-                badge.textContent = `${done}/${total}...`;
-            });
-
-            if (signal.aborted) return;
-
-            const songs = result.songs;
-            if (!songs || songs.length === 0) {
-                throw new Error('Ingen sanger med utgivelsesår funnet i spillelisten.');
-            }
-
-            const seen = new Set();
-            const unique = songs.filter(s => {
-                const key = `${s.title.toLowerCase()}-${s.artist.toLowerCase()}`;
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            });
-
-            setSongs(unique);
-            this._usingCustomPlaylist = true;
-            try {
-                localStorage.setItem('plongster-playlist-songs', JSON.stringify(unique));
-                localStorage.setItem('plongster-playlist-name', playlistName);
-            } catch (e) {
-                console.warn('Could not cache songs to localStorage:', e.message);
-            }
-
-            badge.textContent = `${playlistName} (${unique.length})`;
-            badge.className = 'song-source-badge custom';
-            this._showSongStatus(`${unique.length} sanger lastet fra "${playlistName}".`, 'success');
-            resetBtn.style.display = '';
-
-            // Hide playlist browser after selection
+        const success = await this._loadPlaylistById(playlistId, playlistName, null);
+        if (success) {
             const playlistsEl = document.getElementById('spotify-playlists');
             if (playlistsEl) playlistsEl.style.display = 'none';
-        } catch (err) {
-            if (err.name === 'AbortError') return;
-            badge.textContent = 'Feil';
-            badge.className = 'song-source-badge error';
-            this._showSongStatus(err.message, 'error');
-        } finally {
-            if (generation === this._loadGeneration) {
-                this._loadingAbort = null;
-            }
         }
     },
 
@@ -465,7 +410,6 @@ export const App = {
         const input = document.getElementById('playlist-url');
         if (input) input.value = '';
         this._showSongStatus('Lim inn en Spotify-spilleliste for egne sanger.', '');
-        // Re-show playlist browser if logged in
         if (isLoggedIn() && SPOTIFY_CONFIG.clientId) {
             this.loadPlaylists();
         }
@@ -570,12 +514,10 @@ export const App = {
         const list = document.getElementById('player-list');
         const inputs = list.querySelectorAll('.player-name-input');
 
-        // Fill existing inputs
         inputs.forEach((input, i) => {
             if (i < saved.length) input.value = saved[i];
         });
 
-        // Add extra rows if saved has more players
         for (let i = inputs.length; i < saved.length && i < 10; i++) {
             this.addPlayer();
             const newInputs = list.querySelectorAll('.player-name-input');
@@ -600,7 +542,6 @@ export const App = {
             return;
         }
 
-        // Remember player names for next session
         try {
             localStorage.setItem('plongster-player-names', JSON.stringify(names));
         } catch (e) {}
@@ -659,7 +600,7 @@ export const App = {
         row.className = 'player-input-row fade-in';
         row.innerHTML = `
             <input type="text" class="player-name-input" placeholder="Spiller ${count + 1}" maxlength="15" autocapitalize="words" spellcheck="false" autocomplete="off">
-            <button class="btn-icon btn-remove-player" onclick="App.removePlayer(this)" aria-label="Fjern spiller">&times;</button>
+            <button class="btn-icon btn-remove-player" data-action="remove-player" aria-label="Fjern spiller">&times;</button>
         `;
         list.appendChild(row);
         this.updateRemoveButtons();

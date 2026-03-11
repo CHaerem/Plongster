@@ -65,7 +65,7 @@ export const uiMethods = {
         this._announce(`${this.currentPlayer.name} sin tur`);
     },
 
-    _renderTimelineHTML(player, showDropZones, dropClickFn, disabledDropIndices) {
+    _renderTimelineHTML(player, showDropZones, dropAction, disabledDropIndices) {
         const timeline = player.timeline;
         let html = '';
         /* eslint-disable eqeqeq -- intentional null/undefined check */
@@ -95,7 +95,7 @@ export const uiMethods = {
             if (isDisabled) {
                 html += `<div class="drop-zone disabled" aria-disabled="true"><span>\u{1F6AB} Opptatt</span></div>`;
             } else {
-                html += `<div class="drop-zone" role="button" tabindex="0" aria-label="${dropAriaLabel(0)}" onclick="${dropClickFn}(0)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${dropClickFn}(0)}"><span>${label}</span></div>`;
+                html += `<div class="drop-zone" role="button" tabindex="0" aria-label="${dropAriaLabel(0)}" data-action="${dropAction}" data-index="0"><span>${label}</span></div>`;
             }
         }
 
@@ -123,7 +123,7 @@ export const uiMethods = {
                 if (isDisabled) {
                     html += `<div class="drop-zone disabled" aria-disabled="true"><span>\u{1F6AB} Opptatt</span></div>`;
                 } else {
-                    html += `<div class="drop-zone" role="button" tabindex="0" aria-label="${dropAriaLabel(dropIndex)}" onclick="${dropClickFn}(${dropIndex})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${dropClickFn}(${dropIndex})}"><span>${label || 'Plasser her'}</span></div>`;
+                    html += `<div class="drop-zone" role="button" tabindex="0" aria-label="${dropAriaLabel(dropIndex)}" data-action="${dropAction}" data-index="${dropIndex}"><span>${label || 'Plasser her'}</span></div>`;
                 }
             }
         }
@@ -140,7 +140,7 @@ export const uiMethods = {
         const player = this.currentPlayer;
         const showDropZones = this.isWaitingForPlacement && this.hasPlayedSong;
 
-        el.innerHTML = this._renderTimelineHTML(player, showDropZones, 'Game.onDropZoneClick');
+        el.innerHTML = this._renderTimelineHTML(player, showDropZones, 'drop-zone');
         el.classList.toggle('timeline-empty', player.timeline.length === 0 && !this.isWaitingForPlacement);
 
         const titleEl = document.getElementById('timeline-title');
@@ -157,10 +157,10 @@ export const uiMethods = {
         const p = this.currentPlayer;
         let html = '';
         if (p.tokens >= 1) {
-            html += `<button class="btn btn-ghost action-btn" onclick="Game.skipSongWithToken()">\u23ED Hopp over (1 \u{1F536})</button>`;
+            html += `<button class="btn btn-ghost action-btn" data-action="skip-song-with-token">\u23ED Hopp over (1 \u{1F536})</button>`;
         }
         if (p.tokens >= 3) {
-            html += `<button class="btn btn-ghost action-btn" onclick="Game.tradeTokensForCard()">\u{1F504} Bytt 3 \u{1F536} \u2192 1 kort</button>`;
+            html += `<button class="btn btn-ghost action-btn" data-action="trade-tokens">\u{1F504} Bytt 3 \u{1F536} \u2192 1 kort</button>`;
         }
         el.innerHTML = html;
     },
