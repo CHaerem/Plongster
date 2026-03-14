@@ -169,10 +169,11 @@ window.addEventListener('unhandledrejection', event => {
 });
 
 // ─── Spotify IFrame API callback ───
-
-window.onSpotifyIframeApiReady = IFrameAPI => {
+// The promise is created in an inline script before the SDK loads,
+// so it captures the API even if the callback fires before this module runs
+window._spotifyAPIPromise.then(IFrameAPI => {
     Game.spotifyAPI = IFrameAPI;
-};
+});
 
 // ─── Spotify OAuth Setup ───
 

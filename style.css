@@ -672,6 +672,7 @@ h3 {
     justify-content: center;
     gap: 16px;
     z-index: 2;
+    cursor: pointer;
 }
 
 .spotify-player-wrapper.hidden-player .player-cover {

@@ -375,7 +375,7 @@
                 <!-- Spotify Embed Player (hidden during gameplay) -->
                 <div class="spotify-player-wrapper" id="spotify-wrapper">
                     <div id="spotify-embed"></div>
-                    <div class="player-cover" id="player-cover">
+                    <div class="player-cover" id="player-cover" data-action="toggle-play">
                         <div class="listening-bars" id="listening-bars" style="display: none">
                             <span></span>
                             <span></span>
@@ -536,6 +536,13 @@
             </div>
         </div>
 
+        <script>
+            // Capture Spotify IFrame API callback before SDK loads to avoid
+            // race condition with deferred module scripts
+            window._spotifyAPIPromise = new Promise(function (resolve) {
+                window.onSpotifyIframeApiReady = resolve;
+            });
+        </script>
         <script src="https://open.spotify.com/embed/iframe-api/v1"></script>
         <script type="module" src="main.js"></script>
         <script>
